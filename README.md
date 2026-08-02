@@ -238,12 +238,8 @@ frequencies differently, and `pgvis_qc()` will tell you if that has gone wrong
 
 ## Citation
 
-The models and the framework behind them:
+Coming soon...
 
-> Dutta P, Vaska J, Surana P, Sathian R, Chao M, Zhou Z, Liu H, Davuluri RV,
-> et al. *DeepVRegulome: DNABERT-based deep-learning framework for predicting
-> the functional impact of short genomic variants on the human regulome.*
-> arXiv:2511.09026.
 
 ## License
 
