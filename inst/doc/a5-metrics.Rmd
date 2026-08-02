@@ -1,0 +1,167 @@
+---
+title: "5. Per-variant metrics, filtering, and QC"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{5. Per-variant metrics, filtering, and QC}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(PGViS)
+```
+
+Now we combine the model probabilities with the allele frequencies into
+per-variant metrics, and filter down to the variants that are both disruptive
+and worth scoring. This whole step runs against the bundled fixture, so every
+chunk here executes.
+
+## The three metrics
+
+Each (region, variant) pair gets three numbers, capturing complementary
+evidence.
+
+**Log-odds ratio** — how much the model's confidence in the regulatory element
+drops when the variant is introduced. Positive means disruptive.
+
+```{r lor}
+log_odds_ratio(p_ref = 0.97, p_alt = 0.03)
+log_odds_ratio(0.5, 0.5)          # no change -> 0
+```
+
+Probabilities are clamped away from 0 and 1, so a saturated prediction gives a
+large finite number rather than infinity — which keeps a single confident
+variant from poisoning a downstream mean.
+
+**Score change** — a probability difference weighted by the larger of the two
+probabilities, so a change between two low-confidence values counts for less.
+
+```{r sc}
+score_change(0.9, 0.7)    # confident, so the shift counts
+score_change(0.3, 0.1)    # same 0.2 shift, but low confidence, so shrunk
+```
+
+**Delta-Wi** — divergence between the cohort allele frequencies and the matched
+population frequencies. A variant enriched in the cohort relative to the
+population scores high. It's rank-based inverse-normal transformed, because the
+raw statistic is heavily right-skewed.
+
+```{r dwi}
+d <- data.frame(af_ref = 0.60, af_alt = 0.40,
+                pop_af_ref = 0.95, pop_af_alt = 0.05)
+pgvis_delta_wi(d, transform = FALSE, keep_raw = TRUE)[, c("delta_af_alt", "delta_wi")]
+```
+
+## Population frequency resolution
+
+Delta-Wi needs a population frequency, and getting it out of dbSNP is fiddly:
+UCSC packs each project's frequencies into one comma-delimited string, and you
+have to find the project whose reported minor allele matches your variant.
+PGViS walks the projects in priority order.
+
+```{r popaf}
+row <- data.frame(
+  dbsnp_freqs = paste(c("0.11", "", "0.13", rep("", 9), "0.19"), collapse = ","),
+  dbsnp_minor = paste(c("A",    "", "A",    rep("", 9), "A"),    collapse = ","),
+  dbsnp_ref = "G", dbsnp_alt = "A"
+)
+pgvis_resolve_population_af(row)[, c("pop_af_alt", "pop_af_ref", "freq_source")]
+```
+
+The priority order is an argument, so you can prefer a different project when
+more than one reports a frequency:
+
+```{r popaf-priority}
+pgvis_resolve_population_af(row, priority = c("1000G", "TOPMED"))$freq_source
+```
+
+When no project's minor allele matches, the result is `NA` and
+`freq_source == "none"` — never a guess.
+
+## Putting it together
+
+`pgvis_variant_metrics()` joins the variant table to the predictions and
+computes all three metrics in one call.
+
+```{r metrics}
+variants <- pgvis_example("variants")
+preds    <- pgvis_example("predictions")
+
+metrics <- pgvis_variant_metrics(variants, preds)
+metrics[1:3, c("feature", "log_odds_ratio", "score_change", "delta_wi_int")]
+```
+
+The join is on `feature`, `func_site` and `var_site` — the canonical keys, so
+there's no rename dance and no silent mismatch. Variants with no matching
+prediction are reported and dropped.
+
+## Filtering to disruptive variants
+
+Not every scored variant is interesting. `pgvis_filter_disruptive()` keeps
+those where the model is confident the reference is functional and the mutant
+is not, and where enough samples carry the variant to matter.
+
+```{r filter}
+kept <- pgvis_filter_disruptive(
+  metrics,
+  ref_prob_min = 0.5, alt_prob_max = 0.5, min_carrier_frac = 0
+)
+nrow(metrics)
+nrow(kept)
+```
+
+It records how many rows each criterion removed, so you can see where your
+variants went:
+
+```{r audit}
+attr(kept, "pgvis_filter")
+```
+
+In a real run you'd pass `cfg` and let it use the configured thresholds (a
+strict setting uses 0.7 / 0.3) rather than spelling them out each time.
+
+## Quality control
+
+Run `pgvis_qc()` before going further. It reports the things that most often
+turn out to be wrong: features with no variants, missing population
+frequencies, model probabilities that never move, and carrier counts that look
+like a parsing artefact.
+
+```{r qc}
+pgvis_qc(metrics)
+```
+
+The two findings worth stopping for: a majority of variants with
+`freq_source == "none"` (a dbSNP build mismatch), and degenerate predictions
+(the model isn't distinguishing anything). Both come with an explanatory
+warning rather than a bare number.
+
+## Cross-study replication
+
+A variant seen in both TCGA and CPTAC is far more credible than one seen in
+either alone. When you've combined per-cohort results, this keeps only the
+replicated sites — required *within* stratum, so a smoker hit and a non-smoker
+hit don't count as replicating each other.
+
+```{r replication}
+combined <- data.frame(
+  study     = c("tcga", "cptac", "tcga"),
+  cancer    = "luad",
+  func_site = c("f1", "f1", "f2"),
+  var_site  = c("v1", "v1", "v2"),
+  stringsAsFactors = FALSE
+)
+pgvis_filter_replicated(combined, within = "cancer", min_studies = 2)
+```
+
+## What can go wrong
+
+- **Everything filtered out.** Usually thresholds too strict for your data, or
+  a QC problem upstream. The filter audit tells you which criterion did it.
+- **`freq_source` mostly "none".** dbSNP build mismatch; the frequency-column
+  indices in `pgvis_freq_sources()` are pinned to UCSC dbSnp155.
+- **Metrics all `NA` for delta-Wi.** No population frequency resolved for those
+  variants, so there's nothing to diverge from.
+
+Next: [aggregating to a per-sample score](a6-scoring.html).

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>2. From BAMs to an intersected variant table</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">2. From BAMs to an intersected variant
+table</h1>
+
+
+
+<p>This step covers stages 1 through 6: merging replicate BAMs, calling
+germline variants, joint-genotyping the cohort, converting to BED with
+carrier lists, and intersecting with regulatory regions and dbSNP. It
+ends with an annotated variant table loaded back into R.</p>
+<p>None of this runs inside a vignette — it needs GATK, bedtools, a
+reference genome and, realistically, a scheduler. So the shell chunks
+below are marked <code>eval = FALSE</code>. The one thing we
+<em>can</em> do here is show the outputs each stage produces, so you
+know what “done” looks like.</p>
+<div id="the-stages" class="section level2">
+<h2>The stages</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">pgvis_stages</span>()[, <span class="fu">c</span>(<span class="st">&quot;stage&quot;</span>, <span class="st">&quot;description&quot;</span>)]</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co">#&gt;                   stage</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; 1      01_merge_bams.sh</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co">#&gt; 2       02_call_gvcf.sh</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#&gt; 3    03_combine_gvcf.sh</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt; 4 04_genotype_filter.sh</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co">#&gt; 5         05_vcf2bed.sh</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; 6       06_intersect.sh</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="co">#&gt; 7         07_predict.sh</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#&gt;                                                  description</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co">#&gt; 1                Merge replicate BAMs per patient and tissue</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; 2            GATK HaplotypeCaller, per sample per chromosome</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co">#&gt; 3          CombineGVCFs / GenomicsDBImport across the cohort</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; 4 GenotypeGVCFs, hard filter, normalise, split multiallelics</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co">#&gt; 5     VCF to BED with AC/AF/AN and per-variant carrier lists</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; 6       Intersect variants with regulatory regions and dbSNP</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; 7              Run DNABERT predictions from a local checkout</span></span></code></pre></div>
+<p>Each is a shell template with no site-specific paths in its body.
+When you call the R wrapper, PGViS renders the template with a
+configuration block prepended — your paths, thread count and, on SLURM,
+the <code>#SBATCH</code> directives. You get a plain, readable,
+executable script.</p>
+<p>Why this design rather than calling the tools from R directly:
+variant calling belongs on a scheduler with tens of gigabytes of RAM per
+job, and you want to be able to read, edit and resubmit the exact script
+that ran. Wrapping GATK in R would hide the one artefact you most need
+to inspect.</p>
+</div>
+<div id="configuration-for-the-shell-side" class="section level2">
+<h2>Configuration for the shell side</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>cfg <span class="ot">&lt;-</span> <span class="fu">pgvis_config</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="at">root            =</span> <span class="st">&quot;/scratch/me/lung_pgvis&quot;</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">reference_fasta =</span> <span class="st">&quot;/refs/hg38.analysisSet.fa&quot;</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">dbsnp_dir       =</span> <span class="st">&quot;/refs/dbsnp155/by_chr&quot;</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">regions   =</span> <span class="fu">list</span>(<span class="at">acceptor =</span> <span class="st">&quot;/refs/acceptor.bed&quot;</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>                   <span class="at">donor    =</span> <span class="st">&quot;/refs/donor.bed&quot;</span>),</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">tfbs_dir  =</span> <span class="st">&quot;/refs/encode_tfbs&quot;</span>,          <span class="co"># one subdirectory per TF</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="at">cohorts   =</span> <span class="fu">c</span>(<span class="st">&quot;luad&quot;</span>, <span class="st">&quot;lusc&quot;</span>),</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  <span class="at">threads   =</span> <span class="dv">8</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  <span class="at">scheduler =</span> <span class="st">&quot;slurm&quot;</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  <span class="at">slurm     =</span> <span class="fu">list</span>(<span class="at">partition =</span> <span class="st">&quot;cpu&quot;</span>, <span class="at">mem =</span> <span class="st">&quot;48G&quot;</span>, <span class="at">time =</span> <span class="st">&quot;2-00:00:00&quot;</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>                   <span class="at">cpus_per_task =</span> <span class="dv">8</span>, <span class="at">account =</span> <span class="st">&quot;mylab&quot;</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>)</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="fu">pgvis_init</span>(cfg)</span></code></pre></div>
+</div>
+<div id="the-sample-sheet" class="section level2">
+<h2>The sample sheet</h2>
+<p>Three columns: cohort, tissue, sample. Validate it before you queue a
+thousand jobs behind it — the check catches the failure modes that
+otherwise surface hours in.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>sheet <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">cohort =</span> <span class="fu">c</span>(<span class="st">&quot;luad&quot;</span>, <span class="st">&quot;luad&quot;</span>, <span class="st">&quot;lusc&quot;</span>),</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">tissue =</span> <span class="fu">c</span>(<span class="st">&quot;blood&quot;</span>, <span class="st">&quot;solid&quot;</span>, <span class="st">&quot;blood&quot;</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">sample =</span> <span class="fu">c</span>(<span class="st">&quot;PT-001&quot;</span>, <span class="st">&quot;PT-001&quot;</span>, <span class="st">&quot;PT-002&quot;</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="fu">pgvis_sample_sheet</span>(sheet)</span></code></pre></div>
+<p>The GVCF path is built from cohort/tissue/sample, so a duplicated
+triple would have two samples overwriting each other — that is an error,
+not a warning. A literal tab inside a field would shift every downstream
+column, so that is caught too. With <code>bam_dir</code> supplied it
+also warns about samples that have no BAM.</p>
+</div>
+<div id="running-the-stages" class="section level2">
+<h2>Running the stages</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">pgvis_merge_bams</span>(cfg, <span class="st">&quot;samples.tsv&quot;</span>, <span class="at">submit =</span> <span class="cn">TRUE</span>)   <span class="co"># 01: merge replicates</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">pgvis_call_gvcf</span>(cfg,  <span class="st">&quot;samples.tsv&quot;</span>, <span class="at">submit =</span> <span class="cn">TRUE</span>)   <span class="co"># 02: HaplotypeCaller, array over chr</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">pgvis_combine_gvcf</span>(cfg,    <span class="at">submit =</span> <span class="cn">TRUE</span>)             <span class="co"># 03: GenomicsDBImport, array over cohort x chr</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">pgvis_genotype_filter</span>(cfg, <span class="at">submit =</span> <span class="cn">TRUE</span>)             <span class="co"># 04: genotype, hard-filter, normalise</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="fu">pgvis_vcf_to_bed</span>(cfg,      <span class="at">submit =</span> <span class="cn">TRUE</span>)             <span class="co"># 05: BED + carriers</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="fu">pgvis_intersect</span>(cfg,       <span class="at">submit =</span> <span class="cn">TRUE</span>)             <span class="co"># 06: intersect regions, then dbSNP</span></span></code></pre></div>
+<p>Leave <code>submit = FALSE</code> (the default) and the wrapper
+writes the script and stops, so you can read it first:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>script <span class="ot">&lt;-</span> <span class="fu">pgvis_call_gvcf</span>(cfg, <span class="st">&quot;samples.tsv&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">readLines</span>(script), <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div>
+<p>Any extra named argument becomes a shell variable, which is how you
+override a default without touching the template:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">pgvis_genotype_filter</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  cfg, <span class="at">submit =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">FILTER_EXPR =</span> <span class="st">&quot;QD &lt; 2.0 || FS &gt; 60.0 || MQ &lt; 40.0&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">JAVA_MEM    =</span> <span class="st">&quot;32g&quot;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="restartability-is-built-in-not-bolted-on" class="section level2">
+<h2>Restartability is built in, not bolted on</h2>
+<p>Every stage skips outputs that already exist and are non-empty, and
+writes to a temporary file that is moved into place only on success. A
+job killed by walltime leaves no truncated output, and resubmitting the
+identical command picks up exactly where it stopped — so there’s no
+separate “rerun the failed ones” step to manage. The skip check is the
+retry. To force a redo:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">pgvis_intersect</span>(cfg, <span class="at">submit =</span> <span class="cn">TRUE</span>, <span class="at">PGVIS_FORCE =</span> <span class="dv">1</span>)</span></code></pre></div>
+</div>
+<div id="what-stage-5-produces" class="section level2">
+<h2>What stage 5 produces</h2>
+<p>A headerless BED, one row per ALT allele, with allele counts and the
+list of carrying samples:</p>
+<pre><code>chr1  1000  1001  A  G   1  snv  2  0.333  6  2  S1,S3
+chr1  2000  2002  CT C   1  del  1  0.167  6  1  S1
+chr1  2000  2002  CT CTT 2  ins  2  0.333  6  2  S2,S3</code></pre>
+<p>The carrier list and the genotype columns come from a single
+<code>awk</code> pass over the VCF, so the sample order can never drift
+out of sync with the genotypes. The column layout is the
+<code>&quot;cohort&quot;</code> block of the schema:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">pgvis_schema</span>(<span class="st">&quot;splice&quot;</span>, <span class="at">with_dbsnp =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>]</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt;  [1] &quot;site_chr&quot;    &quot;site_start&quot;  &quot;site_end&quot;    &quot;transcript&quot;  &quot;site_type&quot;  </span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt;  [6] &quot;site_strand&quot; &quot;exon&quot;        &quot;site_file&quot;   &quot;var_chr&quot;     &quot;var_start&quot;  </span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; [11] &quot;var_end&quot;     &quot;ref&quot;</span></span></code></pre></div>
+<p>If you ever edit the awk emitter, edit the schema in the same commit
+— they are two halves of one contract.</p>
+</div>
+<div id="loading-it-back-into-r" class="section level2">
+<h2>Loading it back into R</h2>
+<p>Stage 6 writes
+<code>06_dbsnp/&lt;feature&gt;/&lt;cohort&gt;_chr&lt;N&gt;_dbsnp.bed</code>.
+<code>pgvis_load_variants()</code> reads all of them, applies the
+schema, splits multi-allelic dbSNP records, resolves the population
+frequency, and builds the coordinate keys — everything needed to turn
+raw intersection output into one tidy, analysis-ready table.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>variants <span class="ot">&lt;-</span> <span class="fu">pgvis_load_variants</span>(cfg)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="fu">pgvis_summarise_by</span>(variants, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">&quot;cohort&quot;</span>, <span class="st">&quot;feature_type&quot;</span>))</span></code></pre></div>
+<p>To see the shape of that table without a cluster, the package ships a
+synthetic version:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>variants <span class="ot">&lt;-</span> <span class="fu">pgvis_example</span>(<span class="st">&quot;variants&quot;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">str</span>(variants[, <span class="fu">c</span>(<span class="st">&quot;feature&quot;</span>, <span class="st">&quot;site_chr&quot;</span>, <span class="st">&quot;var_start&quot;</span>, <span class="st">&quot;ref&quot;</span>, <span class="st">&quot;alt&quot;</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>                 <span class="st">&quot;af_alt&quot;</span>, <span class="st">&quot;n_carrier&quot;</span>, <span class="st">&quot;func_site&quot;</span>, <span class="st">&quot;var_site&quot;</span>)])</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt; &#39;data.frame&#39;:    240 obs. of  9 variables:</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt;  $ feature  : chr  &quot;acceptor&quot; &quot;acceptor&quot; &quot;acceptor&quot; &quot;acceptor&quot; ...</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt;  $ site_chr : chr  &quot;chr11&quot; &quot;chr2&quot; &quot;chr18&quot; &quot;chr14&quot; ...</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;  $ var_start: int  21246688 30673110 9427405 6262322 62967742 21256276 76064237 83418997 71901558 27832608 ...</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt;  $ ref      : chr  &quot;A&quot; &quot;C&quot; &quot;C&quot; &quot;G&quot; ...</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt;  $ alt      : chr  &quot;T&quot; &quot;T&quot; &quot;T&quot; &quot;C&quot; ...</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt;  $ af_alt   : num  0.0675 0.0391 0.1972 0.1137 0.1023 ...</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt;  $ n_carrier: int  8 4 23 13 12 6 4 10 17 9 ...</span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt;  $ func_site: chr  &quot;chr11:21246633-21246713(+)&quot; &quot;chr2:30673100-30673180(-)&quot; &quot;chr18:9427393-9427473(-)&quot; &quot;chr14:6262308-6262388(-)&quot; ...</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt;  $ var_site : chr  &quot;chr11:21246688-21246689(A&gt;T)&quot; &quot;chr2:30673110-30673111(C&gt;T)&quot; &quot;chr18:9427405-9427406(C&gt;T)&quot; &quot;chr14:6262322-6262323(G&gt;C)&quot; ...</span></span></code></pre></div>
+</div>
+<div id="what-can-go-wrong" class="section level2">
+<h2>What can go wrong</h2>
+<ul>
+<li><strong>Column-count mismatch on load.</strong>
+<code>pgvis_read_intersect()</code> checks the number of columns against
+the schema and stops if they disagree, rather than silently
+mislabelling. The usual cause is a region BED with an unexpected number
+of fields, or an awk emitter that was changed without the schema.</li>
+<li><strong>Empty intersections.</strong> A feature that overlaps no
+variants writes an empty output; that is normal for rare TFs. A
+<em>majority</em> of features coming back empty usually means the region
+BEDs and the variants are on different genome builds.</li>
+<li><strong>Chromosome naming.</strong> The variant BEDs, region BEDs
+and dbSNP files must all agree on <code>chr</code>-prefixed names. UCSC
+uses <code>chr1</code>; Ensembl uses <code>1</code>.</li>
+</ul>
+<p>Next: <a href="a3-sequences.html">building the reference and
+alternate sequences</a>.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

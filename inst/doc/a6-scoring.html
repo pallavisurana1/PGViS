@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>6. The per-sample PGViS score and downstream analysis</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">6. The per-sample PGViS score and
+downstream analysis</h1>
+
+
+
+<p>The final step turns per-variant metrics into one number per patient:
+the cumulative PGViS score. This vignette runs end to end on the
+fixture.</p>
+<div id="from-variants-to-samples" class="section level2">
+<h2>From variants to samples</h2>
+<p>A variant is carried by some set of samples. To score samples, we
+first expand each variant into one row per carrier, then average the
+metrics within each sample.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>metrics <span class="ot">&lt;-</span> <span class="fu">pgvis_variant_metrics</span>(<span class="fu">pgvis_example</span>(<span class="st">&quot;variants&quot;</span>),</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>                                 <span class="fu">pgvis_example</span>(<span class="st">&quot;predictions&quot;</span>))</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>metrics <span class="ot">&lt;-</span> <span class="fu">pgvis_filter_disruptive</span>(metrics, <span class="at">ref_prob_min =</span> <span class="fl">0.5</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>                                   <span class="at">alt_prob_max =</span> <span class="fl">0.5</span>, <span class="at">min_carrier_frac =</span> <span class="dv">0</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>long <span class="ot">&lt;-</span> <span class="fu">pgvis_explode_carriers</span>(metrics)</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="fu">nrow</span>(metrics)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; [1] 153</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="fu">nrow</span>(long)          <span class="co"># one row per (variant, carrier)</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#&gt; [1] 1226</span></span></code></pre></div>
+<p>Attach ancestry (needed for the standardisation, explained below),
+then aggregate:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>clin <span class="ot">&lt;-</span> <span class="fu">pgvis_example</span>(<span class="st">&quot;clinical&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>clin<span class="sc">$</span>superpopulation <span class="ot">&lt;-</span> <span class="fu">pgvis_map_superpopulation</span>(clin<span class="sc">$</span>race)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>long <span class="ot">&lt;-</span> dplyr<span class="sc">::</span><span class="fu">left_join</span>(long, clin[, <span class="fu">c</span>(<span class="st">&quot;sample&quot;</span>, <span class="st">&quot;superpopulation&quot;</span>)],</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>                         <span class="at">by =</span> <span class="st">&quot;sample&quot;</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>per_sample <span class="ot">&lt;-</span> <span class="fu">pgvis_aggregate_samples</span>(long)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>per_sample <span class="ot">&lt;-</span> per_sample[<span class="sc">!</span><span class="fu">is.na</span>(per_sample<span class="sc">$</span>superpopulation), ]</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">head</span>(per_sample)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; # A tibble: 6 x 7</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt;   sample   superpopulation cohort n_variants delta_wi_int log_odds_ratio</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;    &lt;fct&gt;           &lt;chr&gt;       &lt;int&gt;        &lt;dbl&gt;          &lt;dbl&gt;</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; 1 LUAD-002 EAS             luad            5     -0.487             3.23</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; 2 LUAD-002 EAS             lusc            2     -0.331             4.65</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; 3 LUAD-004 AFR             luad            8     -0.273             6.56</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; 4 LUAD-004 AFR             lusc            4      0.00237           4.81</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; 5 LUAD-007 EUR             luad            4      0.943             3.11</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; 6 LUAD-007 EUR             lusc            3     -0.213             3.88</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; # i 1 more variable: delta_af_alt &lt;dbl&gt;</span></span></code></pre></div>
+<p>Self-reported race maps to a 1000 Genomes superpopulation; anything
+that doesn’t map becomes <code>NA</code> and those samples are excluded
+rather than pooled into a default group. Where you have
+genotype-inferred ancestry, prefer it.</p>
+</div>
+<div id="scoring-against-a-reference" class="section level2">
+<h2>Scoring against a reference</h2>
+<p>The score is defined relative to a reference cohort — typically the
+1000 Genomes panel, run through the identical pipeline. Here we
+synthesise a reference arm so the vignette can score end to end:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>ped <span class="ot">&lt;-</span> <span class="fu">pgvis_load_pedigree</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;toy_pedigree.txt&quot;</span>, <span class="at">package =</span> <span class="st">&quot;PGViS&quot;</span>))</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt; [PGViS] Pedigree: 60 samples across 3 superpopulation(s).</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>panel <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">sample =</span> ped<span class="sc">$</span>sample, <span class="at">superpopulation =</span> ped<span class="sc">$</span>superpopulation,</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">cohort =</span> <span class="st">&quot;1000Genomes&quot;</span>, <span class="at">n_variants =</span> <span class="dv">10</span><span class="dt">L</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>  <span class="at">delta_wi_int   =</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(ped)),</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>  <span class="at">log_odds_ratio =</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(ped)),</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>  <span class="at">delta_af_alt   =</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(ped))</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a>)</span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>stacked <span class="ot">&lt;-</span> <span class="fu">pgvis_bind_panel</span>(per_sample, panel)</span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; [PGViS] Stacked 182 cohort + 60 panel samples.</span></span></code></pre></div>
+<p><code>pgvis_bind_panel()</code> refuses to proceed if the cohort and
+reference share no superpopulation — which would otherwise produce a
+table of all-<code>NA</code> z-scores instead of an error.</p>
+</div>
+<div id="the-composite" class="section level2">
+<h2>The composite</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>scored <span class="ot">&lt;-</span> <span class="fu">pgvis_score</span>(stacked, <span class="at">reference_group =</span> <span class="st">&quot;1000Genomes&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; [PGViS] PC1-derived weights: z_delta_wi_int=0.240  z_log_odds_ratio=0.473  z_delta_af_alt=0.287  (PC1 explains 37.0% of variance)</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">head</span>(scored[, <span class="fu">c</span>(<span class="st">&quot;sample&quot;</span>, <span class="st">&quot;cohort&quot;</span>, <span class="st">&quot;superpopulation&quot;</span>, <span class="st">&quot;pgvis&quot;</span>)])</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt;     sample cohort superpopulation      pgvis</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; 1 LUAD-002   luad             EAS -0.5244296</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; 2 LUAD-002   lusc             EAS -0.2483390</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; 3 LUAD-004   luad             AFR  0.8790057</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; 4 LUAD-004   lusc             AFR  0.6241025</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; 5 LUAD-007   luad             EUR  0.1705504</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; 6 LUAD-007   lusc             EUR -0.1056672</span></span></code></pre></div>
+<p>Three things happen inside:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Robust standardisation.</strong> Each metric is centred on
+the median and scaled by the MAD <em>of the reference cohort within the
+same superpopulation</em>. Median/MAD rather than mean/SD because the
+metric distributions have heavy tails.</li>
+<li><strong>Weighting.</strong> The weights are the absolute PC1
+loadings of the scaled z-scores, normalised to sum to one — each metric
+weighted by how much it contributes to the shared signal, not by a
+hand-picked constant.</li>
+<li><strong>Combination.</strong> The score is the weighted sum.</li>
+</ol>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">attr</span>(scored, <span class="st">&quot;weights&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt;   z_delta_wi_int z_log_odds_ratio   z_delta_af_alt </span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt;        0.2404080        0.4729191        0.2866728</span></span></code></pre></div>
+<div id="why-ancestry-matching-is-not-optional" class="section level3">
+<h3>Why ancestry matching is not optional</h3>
+<p>Allele-frequency divergence from a reference panel scales with how
+genetically distant a sample is from that panel. Standardise against the
+whole panel and the score largely reports ancestry. Standardising
+<em>within</em> superpopulation removes that confound.
+<code>pgvis_score(strata = NULL)</code> exists for a genuinely
+homogeneous cohort and is the wrong choice otherwise.</p>
+</div>
+<div id="freeze-the-weights-for-validation" class="section level3">
+<h3>Freeze the weights for validation</h3>
+<p>The weights are refit from PC1 by default, so two runs aren’t on the
+same scale unless you say so. When you score a validation cohort, reuse
+the discovery weights:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>w  <span class="ot">&lt;-</span> <span class="fu">attr</span>(scored, <span class="st">&quot;weights&quot;</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">pgvis_score</span>(stacked, <span class="at">weights =</span> w)      <span class="co"># same scale as `scored`</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="fu">identical</span>(<span class="fu">attr</span>(s2, <span class="st">&quot;weights&quot;</span>), w)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+</div>
+</div>
+<div id="comparing-groups" class="section level2">
+<h2>Comparing groups</h2>
+<p><code>pgvis_compare_groups()</code> gives ROC AUC, Cohen’s d and a
+permutation p-value — and withholds them when a group is too small to
+interpret.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>demo <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">pgvis =</span> <span class="fu">c</span>(<span class="fu">rnorm</span>(<span class="dv">120</span>, <span class="dv">0</span>), <span class="fu">rnorm</span>(<span class="dv">120</span>, <span class="fl">1.1</span>)),</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>                   <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;control&quot;</span>, <span class="st">&quot;case&quot;</span>), <span class="at">each =</span> <span class="dv">120</span>))</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="fu">pgvis_compare_groups</span>(demo, <span class="at">min_n =</span> <span class="dv">50</span>, <span class="at">n_perm =</span> <span class="dv">500</span>)[,</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">&quot;n1&quot;</span>, <span class="st">&quot;n2&quot;</span>, <span class="st">&quot;auc&quot;</span>, <span class="st">&quot;cohens_d&quot;</span>, <span class="st">&quot;perm_p&quot;</span>)]</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt;    n1  n2 auc cohens_d      perm_p</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; 1 120 120  NA 1.173434 0.001996008</span></span></code></pre></div>
+<p>Below <code>min_n</code> per group it returns
+<code>valid = FALSE</code> and a label saying so, rather than a
+confident effect size from a dozen samples. The permutation p-value uses
+the add-one estimator, so it’s never reported as exactly zero.</p>
+</div>
+<div id="survival" class="section level2">
+<h2>Survival</h2>
+<p>Downstream, but common enough to wrap. It runs a log-rank test across
+score groups and a Cox model on the continuous score, supports
+covariates so you can check the score isn’t just reporting stage, and
+refuses non-binary event coding.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">300</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>score <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>time  <span class="ot">&lt;-</span> <span class="fu">rexp</span>(n, <span class="at">rate =</span> <span class="fu">exp</span>(<span class="fl">0.7</span> <span class="sc">*</span> score) <span class="sc">/</span> <span class="dv">500</span>)   <span class="co"># higher score, shorter time</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>sc  <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">sample =</span> <span class="fu">paste0</span>(<span class="st">&quot;S&quot;</span>, <span class="dv">1</span><span class="sc">:</span>n), <span class="at">pgvis =</span> score)</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>cl  <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">sample =</span> <span class="fu">paste0</span>(<span class="st">&quot;S&quot;</span>, <span class="dv">1</span><span class="sc">:</span>n), <span class="at">time =</span> time,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>                  <span class="at">event =</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, <span class="fl">0.8</span>))</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">pgvis_survival</span>(sc, cl)</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>res<span class="sc">$</span>summary</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt;     n n_events hr_per_sd       hr hr_lower hr_upper        cox_p    logrank_p</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; 1 300      250  2.081865 1.954503  1.70835 2.236123 1.712552e-22 2.692414e-18</span></span></code></pre></div>
+<p><code>pgvis_plot_survival(res)</code> draws the Kaplan-Meier curves
+(with a risk table if <code>survminer</code> is installed, base graphics
+otherwise).</p>
+</div>
+<div id="provenance" class="section level2">
+<h2>Provenance</h2>
+<p><code>pgvis_run()</code> — the one-call wrapper for this whole R-side
+sequence — writes a manifest next to the results recording the
+thresholds, the derived weights, input row counts and any QC warnings.
+Months later, when you need to know exactly which settings produced a
+given table, the answer is sitting next to it rather than lost to
+memory.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">pgvis_run</span>(cfg, variants, <span class="at">clinical =</span> clin,</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>                 <span class="at">reference_group =</span> <span class="st">&quot;1000Genomes&quot;</span>)</span></code></pre></div>
+</div>
+<div id="what-can-go-wrong" class="section level2">
+<h2>What can go wrong</h2>
+<ul>
+<li><strong>Reference group absent.</strong> The score is defined
+relative to a reference; if <code>reference_group</code> isn’t in the
+data, <code>pgvis_score()</code> stops rather than standardising against
+nothing.</li>
+<li><strong>Zero MAD in a stratum.</strong> If a metric is constant
+within a reference stratum the z-score is undefined; PGViS falls back to
+the SD there and warns.</li>
+<li><strong>Comparing scores across runs.</strong> Only valid if the
+weights are frozen. Two independently-fit runs are not on the same
+scale.</li>
+</ul>
+<p>That’s the whole pipeline. The <a href="PGViS.html">overview</a> has
+the condensed version, and <a href="pipeline.html">the cluster guide</a>
+has the shell side in one place.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

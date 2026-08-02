@@ -1,0 +1,196 @@
+---
+title: "Running the upstream pipeline on a cluster"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running the upstream pipeline on a cluster}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+library(PGViS)
+```
+
+This covers stages 1–6: aligned reads to a BED of variants intersected with
+regulatory regions and dbSNP. None of it runs in a vignette (it needs GATK, a
+reference genome and a scheduler), so every chunk here is `eval = FALSE`.
+
+## The shape of it
+
+```{r stages, eval = TRUE}
+pgvis_stages()[, c("stage", "description")]
+```
+
+Each stage is a shell template with no site-specific paths in it.
+`pgvis_render_script()` prepends a generated variable block and, on SLURM, the
+`#SBATCH` directives. You get a plain executable script — read it, edit it,
+run it by hand if you prefer.
+
+## Configuration
+
+```{r config}
+cfg <- pgvis_config(
+  root            = "/scratch/me/lung_pgvis",
+  reference_fasta = "/refs/hg38.fa",
+  dbsnp_dir       = "/refs/dbsnp155/by_chr",
+  regions   = list(acceptor = "/refs/acceptor_sorted.bed",
+                   donor    = "/refs/donor_sorted.bed"),
+  tfbs_dir  = "/refs/encode_tfbs",
+  cohorts   = c("luad", "lusc"),
+  threads   = 8,
+  scheduler = "slurm",
+  slurm     = list(partition = "cpu", mem = "48G", time = "2-00:00:00",
+                   cpus_per_task = 8, account = "mylab")
+)
+pgvis_init(cfg)
+```
+
+## Sample sheet
+
+Three columns: cohort, tissue, sample. Validate it *before* queuing a thousand
+jobs behind it — the check catches the failure modes that otherwise surface
+six hours in.
+
+```{r sheet}
+sheet <- data.frame(
+  cohort = c("luad", "luad", "lusc"),
+  tissue = c("blood", "solid", "blood"),
+  sample = c("PT-001", "PT-001", "PT-002")
+)
+pgvis_sample_sheet(sheet,
+                   path    = file.path(cfg$root, "samples.tsv"),
+                   bam_dir = "/data/raw_bams")
+#> Warning: 1/3 samples have no BAM under /data/raw_bams. First few: PT-002
+```
+
+The GVCF output path is built from cohort/tissue/sample, so duplicate rows
+would silently overwrite each other — that is an error, not a warning.
+
+## Running the stages
+
+```{r run}
+pgvis_merge_bams(cfg, "samples.tsv", submit = TRUE)
+pgvis_call_gvcf(cfg,  "samples.tsv", submit = TRUE)   # array over chromosomes
+pgvis_combine_gvcf(cfg,    submit = TRUE)              # array over cohort x chr
+pgvis_genotype_filter(cfg, submit = TRUE)
+pgvis_vcf_to_bed(cfg,      submit = TRUE)
+pgvis_intersect(cfg,       submit = TRUE)              # array over features
+```
+
+Leave `submit = FALSE` (the default) to render without running:
+
+```{r inspect}
+script <- pgvis_call_gvcf(cfg, "samples.tsv")
+cat(readLines(script)[1:25], sep = "\n")
+```
+
+### Restartability
+
+Every stage skips outputs that already exist and are non-empty. A job killed
+by walltime is simply resubmitted; there is no separate "rerun the failed
+ones" path to maintain. Outputs are written to a temporary file and moved into
+place only on success, so an interrupted job never leaves a truncated file
+that the next run would mistake for finished work.
+
+To force a redo:
+
+```{r force}
+pgvis_intersect(cfg, submit = TRUE, PGVIS_FORCE = 1)
+```
+
+Any extra named argument becomes a shell variable, which is also how you
+override a default without editing the template:
+
+```{r override}
+pgvis_genotype_filter(
+  cfg, submit = TRUE,
+  FILTER_EXPR = "QD < 2.0 || FS > 60.0 || MQ < 40.0",
+  JAVA_MEM    = "32g"
+)
+```
+
+## What comes out
+
+Stage 5 writes a headerless BED, one row per ALT allele, with allele counts
+and the list of carrying samples:
+
+```
+chr1  1000  1001  A  G   1  snv  2  0.333  6  2  S1,S3
+chr1  2000  2002  CT C   1  del  1  0.167  6  1  S1
+chr1  2000  2002  CT CTT 2  ins  2  0.333  6  2  S2,S3
+```
+
+The carrier list and the genotype columns come from a single `awk` pass over
+the VCF, so sample order cannot drift out of sync with the genotypes. The
+column layout is the `"cohort"` block of `pgvis_schema()`; if you change the
+awk emitter, change the schema to match.
+
+Stage 6 intersects against the regulatory regions and then dbSNP, producing
+`06_dbsnp/<feature>/<cohort>_chr<N>_dbsnp.bed`.
+
+## Reading it back into R
+
+```{r load}
+variants <- pgvis_load_variants(cfg)
+pgvis_qc(variants)
+pgvis_summarise_by(variants, by = c("cohort", "feature_type"))
+```
+
+`pgvis_load_variants()` applies the schema, splits multi-allelic dbSNP
+records, resolves the population frequency and builds the coordinate keys, so
+what comes back is one tidy table ready to analyse.
+
+Run `pgvis_qc()` before going further. The two findings worth stopping for are
+a majority of variants with no matched population frequency (usually a dbSNP
+build mismatch, or the frequency-source indices being wrong for your track
+version — see `pgvis_freq_sources()`) and variants with zero carriers, which
+means the genotype columns were misparsed.
+
+## Reference panel arm
+
+The 1000 Genomes side is the same pipeline with three differences, all
+handled by arguments: the VCFs are already jointly genotyped so stages 1–4 are
+skipped, the intersection column order is reversed, and ancestry comes from
+the panel pedigree.
+
+```{r panel}
+panel <- pgvis_panel_config(
+  root    = "/scratch/me/1kgp_pgvis",
+  vcf_dir = "/refs/1kgp/vcf",
+  regions = cfg$regions,
+  dbsnp_dir = cfg$dbsnp_dir
+)
+pgvis_init(panel)
+
+pgvis_vcf_to_bed(panel, submit = TRUE)
+pgvis_intersect(panel,  submit = TRUE)
+
+panel_variants <- pgvis_load_variants(panel, region_first = FALSE)
+ped <- pgvis_load_pedigree("/refs/1kgp/20130606_g1k_3202_samples_ped_population.txt")
+```
+
+Then stack the two arms and score:
+
+```{r bind}
+stacked <- pgvis_bind_panel(cohort_per_sample, panel_per_sample)
+scores  <- pgvis_score(stacked, reference_group = "1000Genomes")
+```
+
+`pgvis_bind_panel()` refuses to proceed if the two arms share no
+superpopulation, which would otherwise produce a table of `NA` z-scores rather
+than an error.
+
+## Provenance
+
+`pgvis_run()` writes a manifest next to every result recording the thresholds,
+the derived weights, the input row counts and any QC warnings.
+
+```{r manifest}
+pgvis_manifest(cfg, stage = "custom_filter",
+               inputs  = list(n_in = nrow(variants)),
+               outputs = list(rds = "filtered.rds"))
+```
+
+Months later, when you need to know exactly which thresholds produced a given
+table, the answer sits next to the result rather than depending on memory.

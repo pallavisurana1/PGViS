@@ -1,0 +1,180 @@
+---
+title: "2. From BAMs to an intersected variant table"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{2. From BAMs to an intersected variant table}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(PGViS)
+```
+
+This step covers stages 1 through 6: merging replicate BAMs, calling germline
+variants, joint-genotyping the cohort, converting to BED with carrier lists,
+and intersecting with regulatory regions and dbSNP. It ends with an annotated
+variant table loaded back into R.
+
+None of this runs inside a vignette — it needs GATK, bedtools, a reference
+genome and, realistically, a scheduler. So the shell chunks below are marked
+`eval = FALSE`. The one thing we *can* do here is show the outputs each stage
+produces, so you know what "done" looks like.
+
+## The stages
+
+```{r stages}
+pgvis_stages()[, c("stage", "description")]
+```
+
+Each is a shell template with no site-specific paths in its body. When you
+call the R wrapper, PGViS renders the template with a configuration block
+prepended — your paths, thread count and, on SLURM, the `#SBATCH` directives.
+You get a plain, readable, executable script.
+
+Why this design rather than calling the tools from R directly: variant calling
+belongs on a scheduler with tens of gigabytes of RAM per job, and you want to
+be able to read, edit and resubmit the exact script that ran. Wrapping GATK in
+R would hide the one artefact you most need to inspect.
+
+## Configuration for the shell side
+
+```{r config, eval = FALSE}
+cfg <- pgvis_config(
+  root            = "/scratch/me/lung_pgvis",
+  reference_fasta = "/refs/hg38.analysisSet.fa",
+  dbsnp_dir       = "/refs/dbsnp155/by_chr",
+  regions   = list(acceptor = "/refs/acceptor.bed",
+                   donor    = "/refs/donor.bed"),
+  tfbs_dir  = "/refs/encode_tfbs",          # one subdirectory per TF
+  cohorts   = c("luad", "lusc"),
+  threads   = 8,
+  scheduler = "slurm",
+  slurm     = list(partition = "cpu", mem = "48G", time = "2-00:00:00",
+                   cpus_per_task = 8, account = "mylab")
+)
+pgvis_init(cfg)
+```
+
+## The sample sheet
+
+Three columns: cohort, tissue, sample. Validate it before you queue a thousand
+jobs behind it — the check catches the failure modes that otherwise surface
+hours in.
+
+```{r sheet}
+sheet <- data.frame(
+  cohort = c("luad", "luad", "lusc"),
+  tissue = c("blood", "solid", "blood"),
+  sample = c("PT-001", "PT-001", "PT-002")
+)
+pgvis_sample_sheet(sheet)
+```
+
+The GVCF path is built from cohort/tissue/sample, so a duplicated triple would
+have two samples overwriting each other — that is an error, not a warning. A
+literal tab inside a field would shift every downstream column, so that is
+caught too. With `bam_dir` supplied it also warns about samples that have no
+BAM.
+
+## Running the stages
+
+```{r run, eval = FALSE}
+pgvis_merge_bams(cfg, "samples.tsv", submit = TRUE)   # 01: merge replicates
+pgvis_call_gvcf(cfg,  "samples.tsv", submit = TRUE)   # 02: HaplotypeCaller, array over chr
+pgvis_combine_gvcf(cfg,    submit = TRUE)             # 03: GenomicsDBImport, array over cohort x chr
+pgvis_genotype_filter(cfg, submit = TRUE)             # 04: genotype, hard-filter, normalise
+pgvis_vcf_to_bed(cfg,      submit = TRUE)             # 05: BED + carriers
+pgvis_intersect(cfg,       submit = TRUE)             # 06: intersect regions, then dbSNP
+```
+
+Leave `submit = FALSE` (the default) and the wrapper writes the script and
+stops, so you can read it first:
+
+```{r inspect, eval = FALSE}
+script <- pgvis_call_gvcf(cfg, "samples.tsv")
+cat(readLines(script), sep = "\n")
+```
+
+Any extra named argument becomes a shell variable, which is how you override a
+default without touching the template:
+
+```{r override, eval = FALSE}
+pgvis_genotype_filter(
+  cfg, submit = TRUE,
+  FILTER_EXPR = "QD < 2.0 || FS > 60.0 || MQ < 40.0",
+  JAVA_MEM    = "32g"
+)
+```
+
+## Restartability is built in, not bolted on
+
+Every stage skips outputs that already exist and are non-empty, and writes to
+a temporary file that is moved into place only on success. A job killed by
+walltime leaves no truncated output, and resubmitting the identical command
+picks up exactly where it stopped — so there's no separate "rerun the failed
+ones" step to manage. The skip check is the retry. To force a redo:
+
+```{r force, eval = FALSE}
+pgvis_intersect(cfg, submit = TRUE, PGVIS_FORCE = 1)
+```
+
+## What stage 5 produces
+
+A headerless BED, one row per ALT allele, with allele counts and the list of
+carrying samples:
+
+```
+chr1  1000  1001  A  G   1  snv  2  0.333  6  2  S1,S3
+chr1  2000  2002  CT C   1  del  1  0.167  6  1  S1
+chr1  2000  2002  CT CTT 2  ins  2  0.333  6  2  S2,S3
+```
+
+The carrier list and the genotype columns come from a single `awk` pass over
+the VCF, so the sample order can never drift out of sync with the genotypes.
+The column layout is the `"cohort"` block of the schema:
+
+```{r schema}
+pgvis_schema("splice", with_dbsnp = TRUE)[1:12]
+```
+
+If you ever edit the awk emitter, edit the schema in the same commit — they
+are two halves of one contract.
+
+## Loading it back into R
+
+Stage 6 writes `06_dbsnp/<feature>/<cohort>_chr<N>_dbsnp.bed`.
+`pgvis_load_variants()` reads all of them, applies the schema, splits
+multi-allelic dbSNP records, resolves the population frequency, and builds the
+coordinate keys — everything needed to turn raw intersection output into one
+tidy, analysis-ready table.
+
+```{r load, eval = FALSE}
+variants <- pgvis_load_variants(cfg)
+pgvis_summarise_by(variants, by = c("cohort", "feature_type"))
+```
+
+To see the shape of that table without a cluster, the package ships a
+synthetic version:
+
+```{r fixture}
+variants <- pgvis_example("variants")
+str(variants[, c("feature", "site_chr", "var_start", "ref", "alt",
+                 "af_alt", "n_carrier", "func_site", "var_site")])
+```
+
+## What can go wrong
+
+- **Column-count mismatch on load.** `pgvis_read_intersect()` checks the
+  number of columns against the schema and stops if they disagree, rather than
+  silently mislabelling. The usual cause is a region BED with an unexpected
+  number of fields, or an awk emitter that was changed without the schema.
+- **Empty intersections.** A feature that overlaps no variants writes an empty
+  output; that is normal for rare TFs. A *majority* of features coming back
+  empty usually means the region BEDs and the variants are on different genome
+  builds.
+- **Chromosome naming.** The variant BEDs, region BEDs and dbSNP files must all
+  agree on `chr`-prefixed names. UCSC uses `chr1`; Ensembl uses `1`.
+
+Next: [building the reference and alternate sequences](a3-sequences.html).

@@ -1,0 +1,143 @@
+---
+title: "1. Setting up a project and its reference data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{1. Setting up a project and its reference data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(PGViS)
+```
+
+This is the first of a series that walks the whole pipeline one step at a
+time. Here we do the unglamorous but load-bearing part: telling PGViS where
+everything lives, and making sure the three external reference resources are
+actually present before you commit a cluster to a multi-day run.
+
+## Everything hangs off one config object
+
+A pipeline like this touches a lot of paths, and it's easy for them to end up
+sprinkled through the code where changing machines means hunting them all
+down. PGViS keeps every path, threshold and tool location in one object, and
+nothing else is allowed to hard-code them.
+
+```{r config}
+cfg <- pgvis_config(
+  root      = file.path(tempdir(), "demo_project"),
+  cohorts   = c("luad", "lusc")
+)
+cfg
+```
+
+`root` is the only thing you must supply. Under it, PGViS lays out a fixed,
+numbered directory tree — stage 1 writes to `01_bam`, stage 2 to `02_gvcf`,
+and so on down to `10_score` — so you always know where a given stage's output
+lives.
+
+```{r dirs}
+cfg$dirs$gvcf
+cfg$dirs$score
+```
+
+Create the tree on disk with `pgvis_init()`:
+
+```{r init}
+pgvis_init(cfg)
+dir.exists(cfg$dirs$score)
+```
+
+## Thresholds are configuration, not code edits
+
+The disruption thresholds live in the config rather than being edited into the
+code, so the settings that produced a given result travel with the project
+instead of having to be remembered. They come with sensible defaults.
+
+```{r thresholds}
+strict <- pgvis_config(
+  root = tempdir(),
+  thresholds = list(ref_prob_min = 0.7, alt_prob_max = 0.3)
+)
+strict$thresholds
+```
+
+Note that the two values you didn't set kept their defaults rather than
+vanishing — `thresholds` is merged with the defaults, not replaced by your
+list. The full set:
+
+- `ref_prob_min` / `alt_prob_max` — how confident the model must be that the
+  reference sequence *is* a functional element and the mutated one is *not*
+- `min_carrier_frac` — the "enriched in ≥ 5% of patients" floor
+- `max_indel_len` — longest allele kept (10 bp)
+- `pseudocount` — added to frequencies before ratios
+- `drop_freq_sources` — population sources to exclude when scoring; defaults
+  to `"1000G"` so a 1000 Genomes reference is never compared against
+  1000G-derived frequencies
+
+## The three reference resources
+
+PGViS needs a genome FASTA (for variant calling and sequence extraction), the
+dbSnp155 frequency track (for population allele frequencies), and one BED per
+regulatory region you want to test. The canonical download locations are
+built in:
+
+```{r urls}
+urls <- pgvis_reference_urls("hg38")
+urls$dbsnp155_common
+urls$genome_fasta
+```
+
+These point at the UCSC download server, which matters: the frequency parsing
+in PGViS was built against the layout of UCSC's dbSnp155 track. A different
+dbSNP build, or the raw NCBI VCF, packs the per-population frequencies
+differently and will silently break the lookup.
+
+### Preparing dbSNP
+
+The track ships as one binary bigBed. PGViS splits it into the per-chromosome
+BEDs the intersection stage reads. You can see exactly what it will run
+before committing to the download:
+
+```{r dbsnp-dry}
+pgvis_prepare_dbsnp(
+  dest        = file.path(cfg$root, "dbsnp"),
+  subset      = "common",          # far smaller than "all"; enough for most work
+  chromosomes = c("21", "22"),
+  dry_run     = TRUE
+)
+```
+
+Dropping `dry_run` runs it for real (it needs UCSC's `bigBedToBed` on your
+`PATH`, or its path passed as `bigbedtobed`). Extraction is per-chromosome
+straight from the bigBed, so you never materialise the whole multi-gigabyte
+track. Like every long-running step in PGViS, it skips chromosomes that are
+already done, so an interrupted download is just restarted.
+
+## Check before you launch
+
+The single most useful habit: verify the references resolve *before* queuing
+the pipeline, not six hours in when a job dies looking for a missing `.fai`.
+
+```{r check}
+pgvis_check_references(cfg)
+```
+
+Everything is flagged here because this demo config points at nothing real.
+On a configured project each line reads `[OK]`, and only then is it worth
+submitting stage 1.
+
+## What can go wrong
+
+- **`cfg$reference_fasta` unset.** Variant calling and sequence extraction
+  both need it; PGViS refuses to start those stages without it.
+- **dbSNP build mismatch.** If most variants later come back with
+  `freq_source == "none"`, the usual cause is a dbSNP track that isn't UCSC
+  dbSnp155, so the frequency-column indices in `pgvis_freq_sources()` point at
+  the wrong fields. `pgvis_qc()` (covered in vignette 5) flags this explicitly.
+- **Region BEDs on the wrong genome.** A hg19 region BED against hg38 variants
+  intersects to almost nothing. `pgvis_check_references()` confirms the files
+  exist but cannot know their build — that one is on you.
+
+Next: [turning aligned reads into an intersected variant table](a2-variant-calling.html).

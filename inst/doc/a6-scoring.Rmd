@@ -1,0 +1,184 @@
+---
+title: "6. The per-sample PGViS score and downstream analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{6. The per-sample PGViS score and downstream analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(PGViS)
+set.seed(1)
+```
+
+The final step turns per-variant metrics into one number per patient: the
+cumulative PGViS score. This vignette runs end to end on the fixture.
+
+## From variants to samples
+
+A variant is carried by some set of samples. To score samples, we first expand
+each variant into one row per carrier, then average the metrics within each
+sample.
+
+```{r explode}
+metrics <- pgvis_variant_metrics(pgvis_example("variants"),
+                                 pgvis_example("predictions"))
+metrics <- pgvis_filter_disruptive(metrics, ref_prob_min = 0.5,
+                                   alt_prob_max = 0.5, min_carrier_frac = 0)
+
+long <- pgvis_explode_carriers(metrics)
+nrow(metrics)
+nrow(long)          # one row per (variant, carrier)
+```
+
+Attach ancestry (needed for the standardisation, explained below), then
+aggregate:
+
+```{r aggregate}
+clin <- pgvis_example("clinical")
+clin$superpopulation <- pgvis_map_superpopulation(clin$race)
+long <- dplyr::left_join(long, clin[, c("sample", "superpopulation")],
+                         by = "sample")
+
+per_sample <- pgvis_aggregate_samples(long)
+per_sample <- per_sample[!is.na(per_sample$superpopulation), ]
+head(per_sample)
+```
+
+Self-reported race maps to a 1000 Genomes superpopulation; anything that
+doesn't map becomes `NA` and those samples are excluded rather than pooled
+into a default group. Where you have genotype-inferred ancestry, prefer it.
+
+## Scoring against a reference
+
+The score is defined relative to a reference cohort — typically the
+1000 Genomes panel, run through the identical pipeline. Here we synthesise a
+reference arm so the vignette can score end to end:
+
+```{r panel}
+ped <- pgvis_load_pedigree(
+  system.file("extdata", "toy_pedigree.txt", package = "PGViS"))
+
+panel <- data.frame(
+  sample = ped$sample, superpopulation = ped$superpopulation,
+  cohort = "1000Genomes", n_variants = 10L,
+  delta_wi_int   = rnorm(nrow(ped)),
+  log_odds_ratio = rnorm(nrow(ped)),
+  delta_af_alt   = rnorm(nrow(ped))
+)
+
+stacked <- pgvis_bind_panel(per_sample, panel)
+```
+
+`pgvis_bind_panel()` refuses to proceed if the cohort and reference share no
+superpopulation — which would otherwise produce a table of all-`NA` z-scores
+instead of an error.
+
+## The composite
+
+```{r score}
+scored <- pgvis_score(stacked, reference_group = "1000Genomes")
+head(scored[, c("sample", "cohort", "superpopulation", "pgvis")])
+```
+
+Three things happen inside:
+
+1. **Robust standardisation.** Each metric is centred on the median and scaled
+   by the MAD *of the reference cohort within the same superpopulation*.
+   Median/MAD rather than mean/SD because the metric distributions have heavy
+   tails.
+2. **Weighting.** The weights are the absolute PC1 loadings of the scaled
+   z-scores, normalised to sum to one — each metric weighted by how much it
+   contributes to the shared signal, not by a hand-picked constant.
+3. **Combination.** The score is the weighted sum.
+
+```{r weights}
+attr(scored, "weights")
+```
+
+### Why ancestry matching is not optional
+
+Allele-frequency divergence from a reference panel scales with how genetically
+distant a sample is from that panel. Standardise against the whole panel and
+the score largely reports ancestry. Standardising *within* superpopulation
+removes that confound. `pgvis_score(strata = NULL)` exists for a genuinely
+homogeneous cohort and is the wrong choice otherwise.
+
+### Freeze the weights for validation
+
+The weights are refit from PC1 by default, so two runs aren't on the same
+scale unless you say so. When you score a validation cohort, reuse the
+discovery weights:
+
+```{r frozen}
+w  <- attr(scored, "weights")
+s2 <- pgvis_score(stacked, weights = w)      # same scale as `scored`
+identical(attr(s2, "weights"), w)
+```
+
+## Comparing groups
+
+`pgvis_compare_groups()` gives ROC AUC, Cohen's d and a permutation p-value —
+and withholds them when a group is too small to interpret.
+
+```{r compare}
+demo <- data.frame(pgvis = c(rnorm(120, 0), rnorm(120, 1.1)),
+                   group = rep(c("control", "case"), each = 120))
+pgvis_compare_groups(demo, min_n = 50, n_perm = 500)[,
+  c("n1", "n2", "auc", "cohens_d", "perm_p")]
+```
+
+Below `min_n` per group it returns `valid = FALSE` and a label saying so,
+rather than a confident effect size from a dozen samples. The permutation
+p-value uses the add-one estimator, so it's never reported as exactly zero.
+
+## Survival
+
+Downstream, but common enough to wrap. It runs a log-rank test across score
+groups and a Cox model on the continuous score, supports covariates so you can
+check the score isn't just reporting stage, and refuses non-binary event
+coding.
+
+```{r survival}
+n <- 300
+score <- rnorm(n)
+time  <- rexp(n, rate = exp(0.7 * score) / 500)   # higher score, shorter time
+sc  <- data.frame(sample = paste0("S", 1:n), pgvis = score)
+cl  <- data.frame(sample = paste0("S", 1:n), time = time,
+                  event = rbinom(n, 1, 0.8))
+
+res <- pgvis_survival(sc, cl)
+res$summary
+```
+
+`pgvis_plot_survival(res)` draws the Kaplan-Meier curves (with a risk table if
+`survminer` is installed, base graphics otherwise).
+
+## Provenance
+
+`pgvis_run()` — the one-call wrapper for this whole R-side sequence — writes a
+manifest next to the results recording the thresholds, the derived weights,
+input row counts and any QC warnings. Months later, when you need to know
+exactly which settings produced a given table, the answer is sitting next to
+it rather than lost to memory.
+
+```{r run, eval = FALSE}
+res <- pgvis_run(cfg, variants, clinical = clin,
+                 reference_group = "1000Genomes")
+```
+
+## What can go wrong
+
+- **Reference group absent.** The score is defined relative to a reference; if
+  `reference_group` isn't in the data, `pgvis_score()` stops rather than
+  standardising against nothing.
+- **Zero MAD in a stratum.** If a metric is constant within a reference
+  stratum the z-score is undefined; PGViS falls back to the SD there and warns.
+- **Comparing scores across runs.** Only valid if the weights are frozen. Two
+  independently-fit runs are not on the same scale.
+
+That's the whole pipeline. The [overview](PGViS.html) has the condensed
+version, and [the cluster guide](pipeline.html) has the shell side in one
+place.

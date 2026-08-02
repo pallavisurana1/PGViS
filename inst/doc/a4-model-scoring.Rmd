@@ -1,0 +1,135 @@
+---
+title: "4. Scoring sequences with DNABERT / DeepVRegulome"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{4. Scoring sequences with DNABERT / DeepVRegulome}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(PGViS)
+```
+
+This is the one step that runs a neural network, and the one PGViS delegates
+rather than does itself. The package prepares the input, hands off to a model
+runner, and reads the probabilities back. Everything before and after this
+step is pure R with no Python dependency; the deep-learning stack is optional.
+
+## Three ways in, one way out
+
+There are three routes to model probabilities. They all converge on the same
+tidy table — `feature`, `func_site`, `var_site`, `p_ref`, `p_alt` — so nothing
+downstream cares which you used.
+
+1. **The `deepvregulome` Python package**, via `reticulate`. It pulls the
+   fine-tuned models from Hugging Face on first use and caches them. Easiest if
+   you have a working Python and a GPU.
+2. **A local DNABERT checkout.** If you already cloned DNABERT and have the
+   fine-tuned checkpoints on disk, PGViS drives `run_finetune.py --do_predict`
+   for you.
+3. **Bring your own.** Write a table with those five columns however you like,
+   and skip straight to the metrics step.
+
+The models live at `r pgvis_model_repo()` on Hugging Face — donor and acceptor
+splice-site classifiers plus several hundred TFBS, RBP and histone-mark
+models, one per ENCODE target.
+
+```{r repo}
+pgvis_model_repo()
+```
+
+## Route 1: the Python package
+
+```{r python-check, eval = FALSE}
+# Is the backend available? (needs reticulate + a Python with deepvregulome)
+pgvis_python_available()
+```
+
+If that returns `FALSE`, it tells you what is missing — usually
+`pip install deepvregulome`. When it's available:
+
+```{r python-run, eval = FALSE}
+preds <- pgvis_predict_python(
+  input_dirs = dirs,            # from pgvis_write_model_input()
+  outdir     = cfg$dirs$preds,
+  python     = cfg$python       # NULL = resolve at call time
+)
+```
+
+This is restartable in the same way the shell stages are: a feature whose
+`predictions.tsv` already exists is skipped, so a run interrupted after 300 of
+462 models resumes from 301.
+
+## Route 2: a local DNABERT checkout
+
+```{r shell-run, eval = FALSE}
+pgvis_predict_shell(
+  input_dirs       = dirs,
+  model_roots      = c("/models/splice", "/models/tfbs"),
+  dnabert_examples = "/opt/DNABERT/examples",
+  outdir           = cfg$dirs$preds,
+  submit           = TRUE
+)
+```
+
+It finds the highest-numbered `checkpoint-*` / `logstep*` directory under each
+model root, applies an 80 bp window to splice models and 300 bp to TFBS
+models, and — again — skips features whose predictions already exist.
+
+## Route 3: your own predictions
+
+The contract is just the five columns. Anything that produces them works:
+
+```{r byo}
+preds <- pgvis_example("predictions")
+head(preds)
+```
+
+## Reading predictions back
+
+`pgvis_read_predictions()` understands both the tidy `predictions.tsv` that
+the Python route writes and the raw DNABERT `pred_results.npy` output. For the
+raw form it reshapes the flat probability array into reference/alternate pairs
+and binds it back to the variant rows in order — and it *errors* if the row
+counts disagree.
+
+```{r read, eval = FALSE}
+preds <- pgvis_read_predictions(cfg$dirs$preds)
+```
+
+That row-count check matters. A mismatch between the prediction array and the
+variant table means the model input was regenerated after prediction and the
+two are no longer aligned. That's a correctness problem, not a warning, so
+PGViS stops rather than quietly dropping the feature from the analysis.
+
+## A sanity check worth doing every time
+
+Before trusting the probabilities, confirm the model is actually
+distinguishing reference from alternate. If almost every variant leaves the
+probability unchanged, or the probabilities take only a couple of distinct
+values, something is wrong — often the `.npy` was reshaped incorrectly or the
+wrong model was applied.
+
+```{r qc}
+qc <- pgvis_qc(pgvis_example("predictions"), verbose = FALSE)
+qc$degenerate_predictions
+qc$median_prob_shift
+```
+
+`pgvis_qc()` (covered fully in vignette 5) flags the degenerate case for you.
+
+## What can go wrong
+
+- **`deepvregulome` API drift.** If the installed package's interface differs
+  from what the bridge tries, fall back to route 2 or 3. The bridge is
+  deliberately thin so this is a small problem.
+- **GPU vs CPU.** The models run on CPU but slowly. For a few hundred models
+  over thousands of variants you want a GPU; that's what the shell route's
+  SLURM integration is for.
+- **Row-count mismatch on read.** You regenerated `variants.tsv` or `dev.tsv`
+  after predicting. Re-run the model for that feature; don't try to realign by
+  hand.
+
+Next: [per-variant metrics and filtering to disruptive variants](a5-metrics.html).

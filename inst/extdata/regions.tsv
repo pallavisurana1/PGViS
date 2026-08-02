@@ -1,0 +1,4 @@
+acceptor	splice	regions/acceptor.bed
+donor	splice	regions/donor.bed
+CTCF	tfbs	regions/CTCF.bed
+SP1	tfbs	regions/SP1.bed

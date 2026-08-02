@@ -1,0 +1,121 @@
+sample,race,time,event
+LUAD-001,not reported,309.8,1
+LUAD-002,asian,255.8,1
+LUAD-003,not reported,3569.6,0
+LUAD-004,black or african american,2582.5,1
+LUAD-005,not reported,1455.7,0
+LUAD-006,not reported,938.9,0
+LUAD-007,white,267.8,0
+LUAD-008,asian,269.9,0
+LUAD-009,black or african american,558.8,0
+LUAD-010,asian,972.7,0
+LUAD-011,white,581.0,1
+LUAD-012,white,2037.1,1
+LUAD-013,black or african american,1040.1,0
+LUAD-014,asian,988.5,1
+LUAD-015,black or african american,966.7,1
+LUAD-016,not reported,453.3,1
+LUAD-017,white,3013.7,1
+LUAD-018,not reported,563.9,0
+LUAD-019,white,1034.0,0
+LUAD-020,not reported,2511.0,1
+LUAD-021,asian,2004.0,1
+LUAD-022,black or african american,363.7,1
+LUAD-023,white,1675.9,0
+LUAD-024,white,83.5,0
+LUAD-025,black or african american,369.3,0
+LUAD-026,not reported,151.3,0
+LUAD-027,asian,3165.4,1
+LUAD-028,asian,77.1,0
+LUAD-029,black or african american,2261.6,1
+LUAD-030,white,430.1,0
+LUAD-031,black or african american,1779.4,1
+LUAD-032,white,88.8,0
+LUAD-033,black or african american,262.5,0
+LUAD-034,not reported,94.4,1
+LUAD-035,not reported,989.0,0
+LUAD-036,white,535.5,0
+LUAD-037,white,419.0,0
+LUAD-038,white,1301.9,0
+LUAD-039,not reported,1492.7,1
+LUAD-040,not reported,142.5,1
+LUAD-041,white,2028.9,1
+LUAD-042,asian,381.8,0
+LUAD-043,white,84.9,1
+LUAD-044,not reported,511.8,0
+LUAD-045,asian,752.8,1
+LUAD-046,white,2366.0,1
+LUAD-047,not reported,96.9,1
+LUAD-048,asian,1102.9,1
+LUAD-049,asian,2492.8,1
+LUAD-050,black or african american,557.6,1
+LUAD-051,white,1050.2,0
+LUAD-052,white,256.8,0
+LUAD-053,white,131.3,1
+LUAD-054,asian,187.5,1
+LUAD-055,black or african american,592.1,0
+LUAD-056,white,1511.8,0
+LUAD-057,white,531.6,0
+LUAD-058,black or african american,28.2,1
+LUAD-059,black or african american,631.4,0
+LUAD-060,black or african american,237.5,0
+LUSC-001,white,794.3,0
+LUSC-002,asian,327.3,1
+LUSC-003,black or african american,452.4,0
+LUSC-004,asian,34.2,1
+LUSC-005,white,225.4,0
+LUSC-006,white,88.6,0
+LUSC-007,black or african american,1761.1,1
+LUSC-008,black or african american,3045.9,0
+LUSC-009,not reported,428.1,1
+LUSC-010,white,2867.6,1
+LUSC-011,black or african american,872.5,0
+LUSC-012,black or african american,703.4,1
+LUSC-013,white,609.5,1
+LUSC-014,white,620.3,1
+LUSC-015,not reported,820.6,0
+LUSC-016,not reported,570.8,1
+LUSC-017,white,837.5,1
+LUSC-018,not reported,291.4,0
+LUSC-019,black or african american,2029.5,0
+LUSC-020,asian,774.3,1
+LUSC-021,white,315.8,0
+LUSC-022,asian,329.9,0
+LUSC-023,not reported,459.0,0
+LUSC-024,black or african american,554.5,0
+LUSC-025,not reported,1190.7,1
+LUSC-026,not reported,41.6,1
+LUSC-027,white,143.9,0
+LUSC-028,white,28.2,0
+LUSC-029,asian,244.7,1
+LUSC-030,white,1232.1,1
+LUSC-031,not reported,795.2,0
+LUSC-032,white,520.8,1
+LUSC-033,asian,150.0,1
+LUSC-034,white,1673.3,1
+LUSC-035,asian,16.9,1
+LUSC-036,black or african american,48.5,0
+LUSC-037,white,1640.0,0
+LUSC-038,black or african american,1623.9,0
+LUSC-039,asian,359.8,0
+LUSC-040,black or african american,129.3,1
+LUSC-041,not reported,1085.8,0
+LUSC-042,black or african american,637.1,0
+LUSC-043,black or african american,1545.6,0
+LUSC-044,white,1964.7,0
+LUSC-045,asian,234.2,0
+LUSC-046,white,1818.0,1
+LUSC-047,white,2057.5,0
+LUSC-048,black or african american,904.0,1
+LUSC-049,white,2284.2,1
+LUSC-050,black or african american,1037.9,1
+LUSC-051,asian,1475.0,0
+LUSC-052,white,858.3,1
+LUSC-053,white,249.7,0
+LUSC-054,white,202.7,1
+LUSC-055,white,329.2,0
+LUSC-056,asian,2273.5,1
+LUSC-057,not reported,156.5,0
+LUSC-058,white,386.3,0
+LUSC-059,white,209.2,0
+LUSC-060,white,2156.1,1

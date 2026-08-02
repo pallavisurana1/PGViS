@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Scoring regulatory germline variant burden with PGViS</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Scoring regulatory germline variant burden
+with PGViS</h1>
+
+
+
+<div id="what-the-score-is-measuring" class="section level2">
+<h2>What the score is measuring</h2>
+<p>A germline variant that lands inside a splice donor site or a
+transcription factor binding site may or may not break it. PGViS asks a
+model trained on that class of element to score the reference sequence
+and the mutated sequence, and treats a large drop in confidence as
+evidence of disruption.</p>
+<p>That alone does not distinguish a variant that is disruptive from one
+that is disruptive <em>and</em> enriched in your cohort. So PGViS also
+compares the cohort allele frequency against a matched population
+frequency. The composite pulls these together into one number per
+sample.</p>
+<p>Three components:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># strongly disruptive: model is confident before, not after</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">log_odds_ratio</span>(<span class="at">p_ref =</span> <span class="fl">0.97</span>, <span class="at">p_alt =</span> <span class="fl">0.03</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; [1] 10.0299</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">score_change</span>(<span class="fl">0.97</span>, <span class="fl">0.03</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#&gt; [1] -0.9118</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co"># a variant enriched in the cohort relative to the population</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">af_ref =</span> <span class="fl">0.60</span>, <span class="at">af_alt =</span> <span class="fl">0.40</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>                <span class="at">pop_af_ref =</span> <span class="fl">0.95</span>, <span class="at">pop_af_alt =</span> <span class="fl">0.05</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="fu">pgvis_delta_wi</span>(d, <span class="at">transform =</span> <span class="cn">FALSE</span>, <span class="at">keep_raw =</span> <span class="cn">TRUE</span>)[, <span class="fu">c</span>(<span class="st">&quot;delta_af_alt&quot;</span>, <span class="st">&quot;delta_wi&quot;</span>)]</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co">#&gt;   delta_af_alt delta_wi</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; 1         0.35 7.368281</span></span></code></pre></div>
+<p><code>score_change</code> deliberately shrinks toward zero when the
+model is unconfident either way:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">c</span>(<span class="at">confident =</span> <span class="fu">score_change</span>(<span class="fl">0.9</span>, <span class="fl">0.7</span>), <span class="at">unconfident =</span> <span class="fu">score_change</span>(<span class="fl">0.3</span>, <span class="fl">0.1</span>))</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt;   confident unconfident </span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="co">#&gt;       -0.18       -0.06</span></span></code></pre></div>
+<p>Both pairs differ by 0.2 in probability, but only the first is a
+change the model actually stands behind.</p>
+</div>
+<div id="setting-up-a-project" class="section level2">
+<h2>Setting up a project</h2>
+<p>Everything site-specific lives in one object.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>cfg <span class="ot">&lt;-</span> <span class="fu">pgvis_config</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="at">root       =</span> <span class="fu">file.path</span>(<span class="fu">tempdir</span>(), <span class="st">&quot;demo&quot;</span>),</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="at">cohorts    =</span> <span class="fu">c</span>(<span class="st">&quot;luad&quot;</span>, <span class="st">&quot;lusc&quot;</span>),</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="at">thresholds =</span> <span class="fu">list</span>(<span class="at">ref_prob_min =</span> <span class="fl">0.7</span>, <span class="at">alt_prob_max =</span> <span class="fl">0.3</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>)</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>cfg</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; &lt;pgvis_config&gt;</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   root       : /tmp/RtmpDpqBX0/demo </span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   genome     : hg38 </span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;   cohorts    : luad, lusc </span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;   chromosomes: 24 </span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   regions    : 0 feature BED file(s)</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt;   scheduler  : none </span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;   thresholds : ref_prob &gt; 0.7 | alt_prob &lt;= 0.3 | carriers &gt;= 5%</span></span></code></pre></div>
+<p>Note that the thresholds you did not specify keep their defaults
+rather than disappearing — the strict <code>0.7 / 0.3</code> pair above
+still inherits the 5% carrier floor and the 10 bp indel limit.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">pgvis_stages</span>()[, <span class="fu">c</span>(<span class="st">&quot;stage&quot;</span>, <span class="st">&quot;description&quot;</span>)]</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt;                   stage</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt; 1      01_merge_bams.sh</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; 2       02_call_gvcf.sh</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; 3    03_combine_gvcf.sh</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; 4 04_genotype_filter.sh</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; 5         05_vcf2bed.sh</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; 6       06_intersect.sh</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; 7         07_predict.sh</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;                                                  description</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; 1                Merge replicate BAMs per patient and tissue</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; 2            GATK HaplotypeCaller, per sample per chromosome</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; 3          CombineGVCFs / GenomicsDBImport across the cohort</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; 4 GenotypeGVCFs, hard filter, normalise, split multiallelics</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; 5     VCF to BED with AC/AF/AN and per-variant carrier lists</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; 6       Intersect variants with regulatory regions and dbSNP</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; 7              Run DNABERT predictions from a local checkout</span></span></code></pre></div>
+<p>Each shell stage is rendered with your configuration prepended, and
+either written for inspection or submitted:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">pgvis_call_gvcf</span>(cfg, <span class="at">sample_sheet =</span> <span class="st">&quot;samples.tsv&quot;</span>, <span class="at">submit =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co">#&gt; [PGViS] Rendered 02_call_gvcf.sh -&gt; .../logs/02_call_gvcf.run.sh</span></span></code></pre></div>
+</div>
+<div id="coordinate-keys" class="section level2">
+<h2>Coordinate keys</h2>
+<p>Joins between the variant table and the prediction table are the
+place where this kind of pipeline usually goes wrong, because the two
+sides get built by different scripts with different key formats. PGViS
+has one constructor each, and they round-trip:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">func_site_key</span>(<span class="st">&quot;chr7&quot;</span>, <span class="dv">55019000</span>, <span class="dv">55019080</span>, <span class="st">&quot;-&quot;</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>v <span class="ot">&lt;-</span> <span class="fu">variant_key</span>(<span class="st">&quot;chr7&quot;</span>, <span class="dv">55019032</span>, <span class="dv">55019033</span>, <span class="st">&quot;a&quot;</span>, <span class="st">&quot;g&quot;</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="fu">c</span>(k, v)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;chr7:55019000-55019080(-)&quot;   &quot;chr7:55019032-55019033(A&gt;G)&quot;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="fu">parse_key</span>(v, <span class="st">&quot;variant&quot;</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;    chr    start      end ref alt</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; 1 chr7 55019032 55019033   A   G</span></span></code></pre></div>
+<p>Strandless features (TFBS) get an empty <code>()</code> so keys stay
+comparable across feature types:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">func_site_key</span>(<span class="st">&quot;chr7&quot;</span>, <span class="dv">100</span>, <span class="dv">400</span>, <span class="st">&quot;.&quot;</span>, <span class="at">stranded =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;chr7:100-400()&quot;</span></span></code></pre></div>
+</div>
+<div id="building-the-sequences" class="section level2">
+<h2>Building the sequences</h2>
+<p>Given a region and a variant inside it, PGViS extracts the region on
+the feature strand, applies the variant in that frame, and emits both
+sequences as k-mers. The substitution is deliberately forgiving about
+coordinates — the reference allele is searched for in a small window,
+because region BEDs and variant BEDs are produced by different tools and
+can disagree by a base — but it will not invent a result:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">mutate_sequence</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;G&quot;</span>, <span class="st">&quot;TTTATTT&quot;</span>, <span class="at">pos_start =</span> <span class="dv">4</span>, <span class="at">pos_end =</span> <span class="dv">4</span>)  <span class="co"># exact</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;TTTGTTT&quot;</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">mutate_sequence</span>(<span class="st">&quot;A&quot;</span>, <span class="st">&quot;G&quot;</span>, <span class="st">&quot;TTTATTT&quot;</span>, <span class="at">pos_start =</span> <span class="dv">5</span>, <span class="at">pos_end =</span> <span class="dv">5</span>)  <span class="co"># off by one</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;TTTGTTT&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="fu">mutate_sequence</span>(<span class="st">&quot;CCCC&quot;</span>, <span class="st">&quot;G&quot;</span>, <span class="st">&quot;TTTATTT&quot;</span>, <span class="at">pos_start =</span> <span class="dv">4</span>, <span class="at">pos_end =</span> <span class="dv">7</span>)  <span class="co"># wrong allele</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [1] NA</span></span></code></pre></div>
+<p>The last returns <code>NA</code> rather than a plausible-looking
+wrong sequence. Those rows are counted and reported, and are worth
+investigating rather than dropping silently.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">seq2kmer</span>(<span class="st">&quot;ACGTACGTAC&quot;</span>, <span class="at">k =</span> <span class="dv">6</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;ACGTAC CGTACG GTACGT TACGTA ACGTAC&quot;</span></span></code></pre></div>
+</div>
+<div id="population-frequency-resolution" class="section level2">
+<h2>Population frequency resolution</h2>
+<p>UCSC’s dbSNP track packs per-project frequencies into one
+comma-delimited string. PGViS walks the projects in priority order and
+takes the first whose reported minor allele matches one of the variant’s
+alleles.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>row <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">dbsnp_freqs =</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;0.11&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="st">&quot;0.13&quot;</span>, <span class="fu">rep</span>(<span class="st">&quot;&quot;</span>, <span class="dv">9</span>), <span class="st">&quot;0.19&quot;</span>), <span class="at">collapse =</span> <span class="st">&quot;,&quot;</span>),</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">dbsnp_minor =</span> <span class="fu">paste</span>(<span class="fu">c</span>(<span class="st">&quot;A&quot;</span>,    <span class="st">&quot;&quot;</span>, <span class="st">&quot;A&quot;</span>,    <span class="fu">rep</span>(<span class="st">&quot;&quot;</span>, <span class="dv">9</span>), <span class="st">&quot;A&quot;</span>),    <span class="at">collapse =</span> <span class="st">&quot;,&quot;</span>),</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">dbsnp_ref =</span> <span class="st">&quot;G&quot;</span>, <span class="at">dbsnp_alt =</span> <span class="st">&quot;A&quot;</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>)</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="fu">pgvis_resolve_population_af</span>(row)[, <span class="fu">c</span>(<span class="st">&quot;pop_af_alt&quot;</span>, <span class="st">&quot;pop_af_ref&quot;</span>, <span class="st">&quot;freq_source&quot;</span>)]</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt;   pop_af_alt pop_af_ref freq_source</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; 1       0.13       0.87      TOPMED</span></span></code></pre></div>
+<p>Priority is an argument, not a hard-coded cascade:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">pgvis_resolve_population_af</span>(row, <span class="at">priority =</span> <span class="fu">c</span>(<span class="st">&quot;1000G&quot;</span>, <span class="st">&quot;TOPMED&quot;</span>))<span class="sc">$</span>freq_source</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;1000G&quot;</span></span></code></pre></div>
+<p>When nothing matches, the result is <code>NA</code> and
+<code>freq_source == &quot;none&quot;</code> — not a guess.</p>
+</div>
+<div id="scoring" class="section level2">
+<h2>Scoring</h2>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">150</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>per_sample <span class="ot">&lt;-</span> <span class="fu">rbind</span>(</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">sample =</span> <span class="fu">paste0</span>(<span class="st">&quot;R&quot;</span>, <span class="dv">1</span><span class="sc">:</span>n), <span class="at">cohort =</span> <span class="st">&quot;1000Genomes&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>             <span class="at">superpopulation =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;EUR&quot;</span>, <span class="st">&quot;EAS&quot;</span>), <span class="at">length.out =</span> n),</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>             <span class="at">n_variants =</span> <span class="dv">10</span><span class="dt">L</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>             <span class="at">delta_wi_int =</span> <span class="fu">rnorm</span>(n), <span class="at">log_odds_ratio =</span> <span class="fu">rnorm</span>(n),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>             <span class="at">delta_af_alt =</span> <span class="fu">rnorm</span>(n)),</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">sample =</span> <span class="fu">paste0</span>(<span class="st">&quot;T&quot;</span>, <span class="dv">1</span><span class="sc">:</span>n), <span class="at">cohort =</span> <span class="st">&quot;tumour&quot;</span>,</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>             <span class="at">superpopulation =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;EUR&quot;</span>, <span class="st">&quot;EAS&quot;</span>), <span class="at">length.out =</span> n),</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>             <span class="at">n_variants =</span> <span class="dv">13</span><span class="dt">L</span>,</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>             <span class="at">delta_wi_int =</span> <span class="fu">rnorm</span>(n, <span class="fl">1.2</span>), <span class="at">log_odds_ratio =</span> <span class="fu">rnorm</span>(n, <span class="fl">1.2</span>),</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>             <span class="at">delta_af_alt =</span> <span class="fu">rnorm</span>(n, <span class="fl">1.2</span>))</span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>)</span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>scored <span class="ot">&lt;-</span> <span class="fu">pgvis_score</span>(per_sample, <span class="at">reference_group =</span> <span class="st">&quot;1000Genomes&quot;</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt; [PGViS] PC1-derived weights: z_delta_wi_int=0.357  z_log_odds_ratio=0.278  z_delta_af_alt=0.364  (PC1 explains 48.8% of variance)</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="fu">head</span>(scored[, <span class="fu">c</span>(<span class="st">&quot;sample&quot;</span>, <span class="st">&quot;cohort&quot;</span>, <span class="st">&quot;superpopulation&quot;</span>, <span class="st">&quot;pgvis&quot;</span>)])</span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt;   sample      cohort superpopulation      pgvis</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; 1     R1 1000Genomes             EUR -0.3165821</span></span>
+<span id="cb12-20"><a href="#cb12-20" tabindex="-1"></a><span class="co">#&gt; 2     R2 1000Genomes             EAS -0.8053028</span></span>
+<span id="cb12-21"><a href="#cb12-21" tabindex="-1"></a><span class="co">#&gt; 3     R3 1000Genomes             EUR -0.3150803</span></span>
+<span id="cb12-22"><a href="#cb12-22" tabindex="-1"></a><span class="co">#&gt; 4     R4 1000Genomes             EAS -0.2703461</span></span>
+<span id="cb12-23"><a href="#cb12-23" tabindex="-1"></a><span class="co">#&gt; 5     R5 1000Genomes             EUR -0.3859251</span></span>
+<span id="cb12-24"><a href="#cb12-24" tabindex="-1"></a><span class="co">#&gt; 6     R6 1000Genomes             EAS -0.4561624</span></span>
+<span id="cb12-25"><a href="#cb12-25" tabindex="-1"></a><span class="fu">attr</span>(scored, <span class="st">&quot;weights&quot;</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" tabindex="-1"></a><span class="co">#&gt;   z_delta_wi_int z_log_odds_ratio   z_delta_af_alt </span></span>
+<span id="cb12-27"><a href="#cb12-27" tabindex="-1"></a><span class="co">#&gt;        0.3574886        0.2782491        0.3642622</span></span></code></pre></div>
+<p>The reference cohort sits near zero by construction; the test cohort
+is displaced:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">tapply</span>(scored<span class="sc">$</span>pgvis, scored<span class="sc">$</span>cohort, median)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; 1000Genomes      tumour </span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#&gt;  -0.4795192   0.4658301</span></span></code></pre></div>
+<div id="two-things-to-get-right" class="section level3">
+<h3>Two things to get right</h3>
+<p><strong>Freeze the weights when you move to a validation
+cohort.</strong> By default they are refit from PC1 of the data in front
+of you, so two runs are not on the same scale unless you say so:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>w  <span class="ot">&lt;-</span> <span class="fu">attr</span>(discovery_scores, <span class="st">&quot;weights&quot;</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>val <span class="ot">&lt;-</span> <span class="fu">pgvis_score</span>(validation, <span class="at">weights =</span> w)</span></code></pre></div>
+<p><strong>Do not turn off ancestry stratification casually.</strong>
+Allele-frequency divergence from a reference panel is confounded with
+genetic distance from that panel. <code>strata = NULL</code> is
+available for a genuinely homogeneous cohort and is the wrong choice
+otherwise.</p>
+</div>
+</div>
+<div id="comparing-groups" class="section level2">
+<h2>Comparing groups</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">pgvis =</span> <span class="fu">c</span>(<span class="fu">rnorm</span>(<span class="dv">120</span>, <span class="dv">0</span>), <span class="fu">rnorm</span>(<span class="dv">120</span>, <span class="fl">1.1</span>)),</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>                <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;control&quot;</span>, <span class="st">&quot;case&quot;</span>), <span class="at">each =</span> <span class="dv">120</span>))</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="fu">pgvis_compare_groups</span>(d, <span class="at">min_n =</span> <span class="dv">50</span>, <span class="at">n_perm =</span> <span class="dv">500</span>)[, <span class="fu">c</span>(<span class="st">&quot;n1&quot;</span>, <span class="st">&quot;n2&quot;</span>, <span class="st">&quot;auc&quot;</span>, <span class="st">&quot;cohens_d&quot;</span>, <span class="st">&quot;perm_p&quot;</span>)]</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt;    n1  n2 auc cohens_d      perm_p</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co">#&gt; 1 120 120  NA 1.079853 0.001996008</span></span></code></pre></div>
+<p>Below <code>min_n</code> per group, statistics are withheld rather
+than reported with a caveat — an effect size from a dozen samples is not
+something to put on a figure.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>small <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">pgvis =</span> <span class="fu">rnorm</span>(<span class="dv">20</span>), <span class="at">group =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&quot;a&quot;</span>, <span class="st">&quot;b&quot;</span>), <span class="dv">10</span>))</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">pgvis_compare_groups</span>(small, <span class="at">min_n =</span> <span class="dv">50</span>)<span class="sc">$</span>label</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; [1] &quot;N = 10 vs 10\n(below n = 50, suppressed)&quot;</span></span></code></pre></div>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="co">#&gt; R version 4.3.3 (2024-02-29)</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="co">#&gt; Platform: x86_64-pc-linux-gnu (64-bit)</span></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co">#&gt; Running under: Ubuntu 24.04.4 LTS</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#&gt; Matrix products: default</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.12.0 </span></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.12.0</span></span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="co">#&gt; locale:</span></span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; [1] C</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="co">#&gt; time zone: Etc/UTC</span></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="co">#&gt; tzcode source: system (glibc)</span></span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="co">#&gt; attached base packages:</span></span>
+<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="co">#&gt; other attached packages:</span></span>
+<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a><span class="co">#&gt; [1] PGViS_0.1.0</span></span>
+<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a><span class="co">#&gt;  [1] vctrs_0.6.5      cli_3.6.2        knitr_1.45       rlang_1.1.3     </span></span>
+<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a><span class="co">#&gt;  [5] xfun_0.41        stringi_1.8.3    generics_0.1.3   jsonlite_1.8.8  </span></span>
+<span id="cb17-25"><a href="#cb17-25" tabindex="-1"></a><span class="co">#&gt;  [9] glue_1.7.0       htmltools_0.5.7  sass_0.4.8       fansi_1.0.5     </span></span>
+<span id="cb17-26"><a href="#cb17-26" tabindex="-1"></a><span class="co">#&gt; [13] rmarkdown_2.25   evaluate_0.23    jquerylib_0.1.4  tibble_3.2.1    </span></span>
+<span id="cb17-27"><a href="#cb17-27" tabindex="-1"></a><span class="co">#&gt; [17] fastmap_1.1.1    yaml_2.3.8       lifecycle_1.0.4  stringr_1.5.1   </span></span>
+<span id="cb17-28"><a href="#cb17-28" tabindex="-1"></a><span class="co">#&gt; [21] compiler_4.3.3   dplyr_1.1.4      pkgconfig_2.0.3  digest_0.6.34   </span></span>
+<span id="cb17-29"><a href="#cb17-29" tabindex="-1"></a><span class="co">#&gt; [25] R6_2.5.1         tidyselect_1.2.0 utf8_1.2.4       pillar_1.9.0    </span></span>
+<span id="cb17-30"><a href="#cb17-30" tabindex="-1"></a><span class="co">#&gt; [29] magrittr_2.0.3   bslib_0.6.1      withr_2.5.0      tools_4.3.3     </span></span>
+<span id="cb17-31"><a href="#cb17-31" tabindex="-1"></a><span class="co">#&gt; [33] cachem_1.0.8</span></span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

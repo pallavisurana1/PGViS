@@ -1,0 +1,40 @@
+Package: PGViS
+Title: Personal Germline Variant Impact Score for Regulatory Regions
+Version: 0.1.0
+Authors@R: c(
+    person("Pallavi", "Surana", email = "pallavi.surana@example.org",
+           role = c("aut", "cre")),
+    person("Ramana V.", "Davuluri", role = "aut"))
+Description: An end-to-end, modular workflow for quantifying the burden of
+    functionally disruptive germline variants in non-coding regulatory
+    regions (splice donor/acceptor sites and transcription factor binding
+    sites). PGViS goes from aligned reads (BAM) through joint germline
+    variant calling, regulatory-region and dbSNP intersection, population
+    allele-frequency resolution, reference/alternate sequence construction,
+    DNABERT/DeepVRegulome model scoring, per-variant disruption metrics
+    (log-odds ratio, score change, delta-Wi), and finally an
+    ancestry-referenced per-sample composite score (PGViS). Heavy variant
+    calling steps are shipped as parameterised shell templates; deep-learning
+    scoring is delegated to the optional 'deepvregulome' Python package.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.1)
+Imports: data.table, dplyr (>= 1.1.0), tidyr, stringr, rlang, tibble,
+        purrr, stats, grDevices, graphics, utils
+Suggests: arrow, survival, survminer, BSgenome,
+        BSgenome.Hsapiens.UCSC.hg38, Biostrings, GenomicRanges,
+        IRanges, ggplot2, corrplot, pROC, effsize, reticulate, testthat
+        (>= 3.0.0), knitr, rmarkdown
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+SystemRequirements: bedtools (>= 2.30), bcftools, samtools, GATK (>=
+        4.2), awk; optional Python >= 3.9 with 'deepvregulome'
+RoxygenNote: 7.3.2
+Roxygen: list(markdown = TRUE)
+URL: https://github.com/pallavisurana1/PGViS
+BugReports: https://github.com/pallavisurana1/PGViS/issues
+NeedsCompilation: no
+Packaged: 2026-08-02 02:38:19 UTC; root
+Author: Pallavi Surana [aut, cre],
+  Ramana V. Davuluri [aut]
+Maintainer: Pallavi Surana <pallavi.surana@example.org>
