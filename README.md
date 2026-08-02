@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # PGViS
 
 **P**ersonal **G**ermline **V**ariant **i**mpact **S**core for
