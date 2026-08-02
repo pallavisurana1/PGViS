@@ -34,7 +34,7 @@ Roxygen: list(markdown = TRUE)
 URL: https://github.com/pallavisurana1/PGViS
 BugReports: https://github.com/pallavisurana1/PGViS/issues
 NeedsCompilation: no
-Packaged: 2026-08-02 02:38:19 UTC; root
+Packaged: 2026-08-02 03:12:04 UTC; root
 Author: Pallavi Surana [aut, cre],
   Ramana V. Davuluri [aut]
 Maintainer: Pallavi Surana <pallavi.surana@example.org>

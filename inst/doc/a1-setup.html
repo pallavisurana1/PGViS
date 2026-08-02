@@ -359,7 +359,7 @@ them.</p>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>)</span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>cfg</span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co">#&gt; &lt;pgvis_config&gt;</span></span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co">#&gt;   root       : /tmp/RtmpDpqBX0/demo_project </span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="co">#&gt;   root       : /tmp/RtmpA1fQbc/demo_project </span></span>
 <span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt;   genome     : hg38 </span></span>
 <span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="co">#&gt;   cohorts    : luad, lusc </span></span>
 <span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#&gt;   chromosomes: 24 </span></span>
@@ -372,9 +372,9 @@ lays out a fixed, numbered directory tree — stage 1 writes to
 <code>10_score</code> — so you always know where a given stage’s output
 lives.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>cfg<span class="sc">$</span>dirs<span class="sc">$</span>gvcf</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;/tmp/RtmpDpqBX0/demo_project/02_gvcf&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;/tmp/RtmpA1fQbc/demo_project/02_gvcf&quot;</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>cfg<span class="sc">$</span>dirs<span class="sc">$</span>score</span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;/tmp/RtmpDpqBX0/demo_project/10_score&quot;</span></span></code></pre></div>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt; [1] &quot;/tmp/RtmpA1fQbc/demo_project/10_score&quot;</span></span></code></pre></div>
 <p>Create the tree on disk with <code>pgvis_init()</code>:</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">pgvis_init</span>(cfg)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">dir.exists</span>(cfg<span class="sc">$</span>dirs<span class="sc">$</span>score)</span>
@@ -451,11 +451,11 @@ what it will run before committing to the download:</p>
 <span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">dry_run     =</span> <span class="cn">TRUE</span></span>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>)</span>
 <span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; # 1. Download the dbSnp155 common track (smaller, recommended)</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; curl -o &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;https://hgdownload.soe.ucsc.edu/gbdb/hg38/snp/dbSnp155Common.bb&#39;</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; curl -o &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;https://hgdownload.soe.ucsc.edu/gbdb/hg38/snp/dbSnp155Common.bb&#39;</span></span>
 <span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; # 2. Extract each chromosome directly from the bigBed (no full extraction needed)</span></span>
-<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; &#39;bigBedToBed&#39; -chrom=chr21 &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155.chr21.bed&#39;</span></span>
-<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; &#39;bigBedToBed&#39; -chrom=chr22 &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155.chr22.bed&#39;</span></span>
-<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; rm -f &#39;/tmp/RtmpDpqBX0/demo_project/dbsnp/dbSnp155Common.bb&#39;</span></span></code></pre></div>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; &#39;bigBedToBed&#39; -chrom=chr21 &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155.chr21.bed&#39;</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; &#39;bigBedToBed&#39; -chrom=chr22 &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155Common.bb&#39; &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155.chr22.bed&#39;</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; rm -f &#39;/tmp/RtmpA1fQbc/demo_project/dbsnp/dbSnp155Common.bb&#39;</span></span></code></pre></div>
 <p>Dropping <code>dry_run</code> runs it for real (it needs UCSC’s
 <code>bigBedToBed</code> on your <code>PATH</code>, or its path passed
 as <code>bigbedtobed</code>). Extraction is per-chromosome straight from

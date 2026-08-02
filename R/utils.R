@@ -1,6 +1,8 @@
 #' @keywords internal
 "_PACKAGE"
 
+#' Null-coalescing operator (internal)
+#' @noRd
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 .msg <- function(...) {
