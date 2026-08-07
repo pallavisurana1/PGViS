@@ -324,8 +324,7 @@ frequencies differently — `pgvis_qc()` flags it when that happens, the
 tell being most variants coming back with no resolved frequency.
 
 ## Citation
-
-Coming soon...
+Surana et. al., (2026) bioRxiv https://www.biorxiv.org/content/10.64898/2026.08.01.742250v1
 
 ## License
 
