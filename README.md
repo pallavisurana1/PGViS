@@ -79,7 +79,7 @@ library(PGViS)
 
 res <- pgvis_example_run()
 head(res$scores)
-attr(res$scores, "weights")   # how the three signals were weighted
+attr(res$scores, "reference") # reference mean / SD per ancestry stratum
 ```
 
 Or look at the pieces one at a time:
@@ -241,12 +241,45 @@ Each variant inside a regulatory element gets three signals:
 | ΔWi            | `pgvis_delta_wi()` | how far the cohort allele frequency diverges from the matched population frequency |
 | ΔAF            | `pgvis_delta_wi()` | the raw cohort-minus-population alternate frequency                                |
 
-They're averaged per person, standardised against a reference cohort
-using the median and MAD (the distributions are heavy-tailed, so mean
-and SD would mislead), and combined. The weights come from the first
-principal component of the standardised signals — each signal is
-weighted by how much it drives the shared axis of variation, not by a
-number picked by hand.
+The score itself uses two of them, $|\Delta Wi|$ and the log-odds ratio.
+For a dataset with variant list $U$ and a person carrying the variants
+$C_i$:
+
+$$p_{fv} = \frac{\#\{u \in U : x_{fu} \le x_{fv}\}}{|U|}, \qquad f \in \{|\Delta Wi|, \mathrm{LOR}\} \tag{1}$$
+
+$$s_v = \left(p_{|\Delta Wi|,v}\; p_{\mathrm{LOR},v}\right)^{1/2} \tag{2}$$
+
+$$S_i = \sqrt{\frac{1}{|C_i|}\sum_{v \in C_i} s_v^{2}} \tag{3}$$
+
+$$\mathrm{PGViS}_i = \frac{S_i - \mathrm{mean}_{\mathrm{ref}}}{\mathrm{SD}_{\mathrm{ref}}} \tag{4}$$
+
+Each feature is ranked within its own dataset's variant list (1), the
+two ranks are combined by geometric mean (2), a person's score is the
+root mean square over the variants they carry (3), and it is
+standardised against the reference cohort scored the same way (4):
+
+``` r
+long   <- pgvis_variant_score(long)    # Eq. 1-2
+person <- pgvis_sample_scores(long)    # Eq. 3
+scores <- pgvis_score(person)          # Eq. 4
+```
+
+**ΔAF is not in the score.** It is the criterion used to *select*
+variants (|ΔAF| ≥ 0.1), so tumour ΔAF is enriched by construction while
+the reference panel's is near zero; scoring on it again makes the
+comparison circular. The cumulative sum is avoided too, because it
+tracks how many variants a cohort's list contains rather than anything
+about the person. The root mean square is only weakly related to variant
+count.
+
+Because ranks are taken within each list, the score reflects *which*
+variants of the list a person carries (high-ranking or low-ranking), not
+absolute feature values. Tumour and reference lists are built
+separately, so read the score as moderate separation, not as a
+diagnostic.
+
+The pre-0.2.0 PCA-weighted composite is still available as
+`pgvis_score(df, method = "pca")`.
 
 Two things are worth knowing before you read a score:
 
@@ -258,14 +291,14 @@ superpopulation to remove that. `strata = NULL` turns it off for a
 genuinely homogeneous cohort, but that's the wrong default anywhere
 else.
 
-**Weights are refit unless you freeze them.** `pgvis_score()` derives
-the weights from whatever data you give it, so a discovery cohort and a
-validation cohort scored separately aren't on the same scale. Carry the
-weights across to line them up:
+**The reference is refit unless you freeze it.** `pgvis_score()` takes
+the reference mean and SD from whatever reference samples you give it, so
+two cohorts scored separately aren't on the same scale. Carry the
+reference across to line them up:
 
 ``` r
-w   <- attr(discovery, "weights")
-val <- pgvis_score(validation, weights = w)
+ref <- attr(discovery, "reference")
+val <- pgvis_score(validation, reference = ref)
 ```
 
 `thresholds$drop_freq_sources` defaults to `"1000G"`: when the reference
@@ -299,7 +332,8 @@ browseVignettes("PGViS")
 | Model (optional)  | `pgvis_predict_python()` `pgvis_predict_shell()` `pgvis_read_predictions()`                                                        |
 | Metrics           | `log_odds_ratio()` `score_change()` `pgvis_delta_wi()` `pgvis_variant_metrics()` `pgvis_filter_disruptive()`                       |
 | Cohorts           | `pgvis_combine_results()` `pgvis_parse_label()` `pgvis_filter_replicated()` `pgvis_summarise_by()`                                 |
-| Score             | `pgvis_explode_carriers()` `pgvis_aggregate_samples()` `pgvis_bind_panel()` `pgvis_score()` `pgvis_weights()`                      |
+| Score             | `pgvis_explode_carriers()` `pgvis_variant_score()` `pgvis_sample_scores()` `pgvis_bind_panel()` `pgvis_score()`                    |
+| Legacy score      | `pgvis_aggregate_samples()` `pgvis_weights()` (`pgvis_score(method = "pca")`)                                                      |
 | Reporting         | `pgvis_plot_density()` `pgvis_compare_groups()` `pgvis_survival()` `pgvis_plot_survival()` `pgvis_qc()` `pgvis_manifest()`         |
 | End to end        | `pgvis_run()` `pgvis_example()` `pgvis_example_run()`                                                                              |
 

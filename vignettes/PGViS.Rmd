@@ -22,8 +22,11 @@ sequence, and treats a large drop in confidence as evidence of disruption.
 
 That alone does not distinguish a variant that is disruptive from one that is
 disruptive *and* enriched in your cohort. So PGViS also compares the cohort
-allele frequency against a matched population frequency. The composite pulls
-these together into one number per sample.
+allele frequency against a matched population frequency; that shift is used to
+*select* variants and is deliberately kept out of the score itself. The score
+ranks each variant's regulatory change and log-odds ratio within its cohort's
+variant list and summarises the variants a person carries as one number per
+sample.
 
 Three components:
 
@@ -148,26 +151,42 @@ guess.
 ## Scoring
 
 ```{r score}
-n <- 150
-per_sample <- rbind(
-  data.frame(sample = paste0("R", 1:n), cohort = "1000Genomes",
-             superpopulation = rep(c("EUR", "EAS"), length.out = n),
-             n_variants = 10L,
-             delta_wi_int = rnorm(n), log_odds_ratio = rnorm(n),
-             delta_af_alt = rnorm(n)),
-  data.frame(sample = paste0("T", 1:n), cohort = "tumour",
-             superpopulation = rep(c("EUR", "EAS"), length.out = n),
-             n_variants = 13L,
-             delta_wi_int = rnorm(n, 1.2), log_odds_ratio = rnorm(n, 1.2),
-             delta_af_alt = rnorm(n, 1.2))
-)
+The score has four steps. For a dataset with variant list $U$ and a sample
+carrying the variants $C_i$:
 
-scored <- pgvis_score(per_sample, reference_group = "1000Genomes")
-head(scored[, c("sample", "cohort", "superpopulation", "pgvis")])
-attr(scored, "weights")
+$$p_{fv} = \frac{\#\{u \in U : x_{fu} \le x_{fv}\}}{|U|}, \quad f \in \{|\Delta Wi|, \mathrm{LOR}\} \tag{1}$$
+$$s_v = \left(p_{|\Delta Wi|,v}\, p_{\mathrm{LOR},v}\right)^{1/2} \tag{2}$$
+$$S_i = \sqrt{\tfrac{1}{|C_i|}\textstyle\sum_{v \in C_i} s_v^{2}} \tag{3}$$
+$$\mathrm{PGViS}_i = (S_i - \mathrm{mean}_{\mathrm{ref}}) / \mathrm{SD}_{\mathrm{ref}} \tag{4}$$
+
+ΔAF is not used: it is the criterion that selects the variants, so scoring on
+it again would be circular.
+
+```{r score}
+set.seed(1)
+mk <- function(cohort, n, n_list, pre, enrich) {
+  vars <- data.frame(var_site = paste0(pre, seq_len(n_list)),
+                     delta_wi_int = rnorm(n_list), log_odds_ratio = rnorm(n_list))
+  prob <- if (enrich) rank(abs(vars$delta_wi_int) * rank(vars$log_odds_ratio))
+  do.call(rbind, lapply(seq_len(n), function(i) {
+    v <- vars[sample(n_list, sample(5:30, 1), prob = prob), ]
+    v$sample <- paste0(substr(cohort, 1, 1), i); v$cohort <- cohort
+    v$superpopulation <- if (i %% 2) "EUR" else "EAS"; v
+  }))
+}
+long <- rbind(mk("1000Genomes", 100, 80, "r", FALSE),
+              mk("tumour",      100, 200, "t", TRUE))
+
+long       <- pgvis_variant_score(long)    # Eq. 1-2
+per_sample <- pgvis_sample_scores(long)    # Eq. 3
+scored     <- pgvis_score(per_sample, reference_group = "1000Genomes")   # Eq. 4
+head(scored[, c("sample", "cohort", "superpopulation", "pgvis_raw", "pgvis")])
+attr(scored, "reference")
 ```
 
-The reference cohort sits near zero by construction; the test cohort is
+Here the tumour samples preferentially carry the high-ranking variants of
+their own list, which is what the score detects. The reference cohort sits at
+zero by construction (within each superpopulation); the test cohort is
 displaced:
 
 ```{r score-check}
@@ -176,14 +195,17 @@ tapply(scored$pgvis, scored$cohort, median)
 
 ### Two things to get right
 
-**Freeze the weights when you move to a validation cohort.** By default they
-are refit from PC1 of the data in front of you, so two runs are not on the
-same scale unless you say so:
+**Freeze the reference when you move to a validation cohort.** By default the
+reference mean and SD are refit from the reference samples in front of you, so
+two runs are not on the same scale unless you say so:
 
 ```{r frozen, eval = FALSE}
-w  <- attr(discovery_scores, "weights")
-val <- pgvis_score(validation, weights = w)
+ref <- attr(discovery_scores, "reference")
+val <- pgvis_score(validation, reference = ref)
 ```
+
+The pre-0.2.0 PCA-weighted composite is still available as
+`pgvis_score(df, method = "pca")`.
 
 **Do not turn off ancestry stratification casually.** Allele-frequency
 divergence from a reference panel is confounded with genetic distance from

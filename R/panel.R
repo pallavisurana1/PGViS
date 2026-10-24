@@ -102,15 +102,28 @@ pgvis_load_pedigree <- function(path, sample_col = NULL, superpop_col = NULL) {
 #' shares no superpopulation with the cohort, which produces all-`NA` z-scores
 #' rather than an error.
 #'
-#' @param cohort,panel Per-sample tables from [pgvis_aggregate_samples()].
-#' @param metrics Metric columns required in both.
+#' Each arm must already carry its raw sample score `pgvis_raw`, computed
+#' against its *own* variant list with [pgvis_variant_score()] and
+#' [pgvis_sample_scores()]. (Alternatively, stack the two arms' long variant
+#' tables before scoring so a single call handles both.)
+#'
+#' @param cohort,panel Per-sample tables from [pgvis_sample_scores()] (or, for
+#'   the legacy composite, [pgvis_aggregate_samples()]).
+#' @param metrics Columns required in both. `NULL` (default) uses `pgvis_raw`
+#'   when both tables have it, otherwise the three legacy metric columns.
 #' @param panel_label Cohort label to assign to the panel rows.
 #' @return A single stacked table ready for [pgvis_score()].
 #' @export
 pgvis_bind_panel <- function(cohort, panel,
-                             metrics = c("delta_wi_int", "log_odds_ratio",
-                                         "delta_af_alt"),
+                             metrics = NULL,
                              panel_label = "1000Genomes") {
+  if (is.null(metrics)) {
+    metrics <- if ("pgvis_raw" %in% names(cohort) && "pgvis_raw" %in% names(panel)) {
+      "pgvis_raw"
+    } else {
+      c("delta_wi_int", "log_odds_ratio", "delta_af_alt")
+    }
+  }
   for (nm in c("cohort", "panel")) {
     d <- get(nm)
     miss <- setdiff(c("sample", metrics), names(d))

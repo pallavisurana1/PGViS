@@ -4,17 +4,14 @@
 \alias{pgvis_bind_panel}
 \title{Harmonise a cohort table and a reference panel table for scoring}
 \usage{
-pgvis_bind_panel(
-  cohort,
-  panel,
-  metrics = c("delta_wi_int", "log_odds_ratio", "delta_af_alt"),
-  panel_label = "1000Genomes"
-)
+pgvis_bind_panel(cohort, panel, metrics = NULL, panel_label = "1000Genomes")
 }
 \arguments{
-\item{cohort, panel}{Per-sample tables from \code{\link[=pgvis_aggregate_samples]{pgvis_aggregate_samples()}}.}
+\item{cohort, panel}{Per-sample tables from \code{\link[=pgvis_sample_scores]{pgvis_sample_scores()}} (or, for
+the legacy composite, \code{\link[=pgvis_aggregate_samples]{pgvis_aggregate_samples()}}).}
 
-\item{metrics}{Metric columns required in both.}
+\item{metrics}{Columns required in both. \code{NULL} (default) uses \code{pgvis_raw}
+when both tables have it, otherwise the three legacy metric columns.}
 
 \item{panel_label}{Cohort label to assign to the panel rows.}
 }
@@ -27,4 +24,10 @@ columns and the ancestry levels actually overlap, and stacks them. The
 failure mode this exists to prevent is scoring against a reference that
 shares no superpopulation with the cohort, which produces all-\code{NA} z-scores
 rather than an error.
+}
+\details{
+Each arm must already carry its raw sample score \code{pgvis_raw}, computed
+against its \emph{own} variant list with \code{\link[=pgvis_variant_score]{pgvis_variant_score()}} and
+\code{\link[=pgvis_sample_scores]{pgvis_sample_scores()}}. (Alternatively, stack the two arms' long variant
+tables before scoring so a single call handles both.)
 }

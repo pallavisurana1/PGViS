@@ -33,8 +33,9 @@ unavailable it stops with instructions rather than guessing.}
 A list with \code{variants}, \code{metrics}, \code{per_sample} and \code{scores}.
 }
 \description{
-Sequence construction, model scoring, metrics, filtering, per-sample
-aggregation and the composite score, in one call. Every intermediate is
+Sequence construction, model scoring, metrics, filtering, per-variant
+percentile scoring, per-sample root-mean-square aggregation and
+standardisation against the reference (see \code{\link[=pgvis_score]{pgvis_score()}}), in one call. Every intermediate is
 written to \code{cfg}'s directories, so you can stop after any stage and pick up
 from the saved object.
 }

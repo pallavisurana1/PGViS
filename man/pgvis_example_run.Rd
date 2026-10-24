@@ -20,5 +20,5 @@ and as a template to read alongside your own analysis.
 \examples{
 res <- pgvis_example_run()
 head(res$scores)
-attr(res$scores, "weights")
+attr(res$scores, "reference")
 }

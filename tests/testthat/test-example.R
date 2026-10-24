@@ -27,8 +27,11 @@ test_that("the example workflow runs end to end and produces finite scores", {
   expect_gt(nrow(res$scores), 0)
   expect_true("pgvis" %in% names(res$scores))
   expect_true(any(is.finite(res$scores$pgvis)))
-  w <- attr(res$scores, "weights")
-  expect_equal(sum(w), 1, tolerance = 1e-8)
+  expect_true("pgvis_raw" %in% names(res$scores))
+  expect_true(all(res$scores$pgvis_raw[!is.na(res$scores$pgvis_raw)] > 0 &
+                  res$scores$pgvis_raw[!is.na(res$scores$pgvis_raw)] <= 1))
+  ref <- attr(res$scores, "reference")
+  expect_true(all(c("mu", "sigma") %in% names(ref)))
 })
 
 test_that("metrics computed on the example are in sensible ranges", {

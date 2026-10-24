@@ -174,8 +174,9 @@ pgvis_load_variants <- function(cfg, manifest = NULL, dir = NULL,
 
 #' Run the R-side workflow end to end
 #'
-#' Sequence construction, model scoring, metrics, filtering, per-sample
-#' aggregation and the composite score, in one call. Every intermediate is
+#' Sequence construction, model scoring, metrics, filtering, per-variant
+#' percentile scoring, per-sample root-mean-square aggregation and
+#' standardisation against the reference (see [pgvis_score()]), in one call. Every intermediate is
 #' written to `cfg`'s directories, so you can stop after any stage and pick up
 #' from the saved object.
 #'
@@ -235,12 +236,14 @@ pgvis_run <- function(cfg, variants, predictions = NULL, clinical = NULL,
     long <- dplyr::left_join(long, clinical, by = "sample")
   }
   strata <- if ("superpopulation" %in% names(long)) "superpopulation" else NULL
-  per_sample <- pgvis_aggregate_samples(
-    long, by = c("sample", strata, "cohort"))
+  # Eq. 1-3: percentile within each cohort's own variant list, geometric mean
+  # of |delta Wi| and LOR per variant, root mean square per sample.
+  long <- pgvis_variant_score(long)
+  per_sample <- pgvis_sample_scores(long, by = c("sample", strata, "cohort"))
 
-  .msg("5/5 computing composite score")
+  .msg("5/5 standardising against the ", reference_group, " reference")
   scores <- pgvis_score(per_sample, reference_group = reference_group,
-                        strata = strata)
+                        strata = strata)   # Eq. 4
   if (save) {
     saveRDS(per_sample, file.path(cfg$dirs$score, "per_sample_metrics.rds"))
     saveRDS(scores, file.path(cfg$dirs$score, "pgvis_scores.rds"))
@@ -255,7 +258,15 @@ pgvis_run <- function(cfg, variants, predictions = NULL, clinical = NULL,
       outputs = list(scores = file.path(cfg$dirs$score, "pgvis_scores.csv")),
       extra   = list(reference_group = reference_group,
                      strata = strata %||% "none",
-                     weights = attr(scores, "weights"),
+                     score_method = "percentile / geometric mean / root mean square",
+                     score_features = "abs(delta_wi_int), log_odds_ratio",
+                     reference = paste(
+                       sprintf("%s: mean=%.4f sd=%.4f",
+                               if (is.null(strata)) "all" else
+                                 as.character(attr(scores, "reference")[[strata]]),
+                               attr(scores, "reference")$mu,
+                               attr(scores, "reference")$sigma),
+                       collapse = "; "),
                      n_scored_samples = nrow(scores),
                      qc_warnings = if (length(qc$warnings)) qc$warnings else "none")
     )

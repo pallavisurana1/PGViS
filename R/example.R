@@ -69,7 +69,7 @@ pgvis_example <- function(which = c("variants", "predictions", "clinical",
 #' @examples
 #' res <- pgvis_example_run()
 #' head(res$scores)
-#' attr(res$scores, "weights")
+#' attr(res$scores, "reference")
 pgvis_example_run <- function(verbose = TRUE) {
   old <- getOption("PGViS.quiet")
   options(PGViS.quiet = !verbose)
@@ -91,26 +91,32 @@ pgvis_example_run <- function(verbose = TRUE) {
   long <- dplyr::left_join(long, clin[, c("sample", "superpopulation")],
                            by = "sample")
 
-  cohort_ps <- pgvis_aggregate_samples(long)
-  cohort_ps <- cohort_ps[!is.na(cohort_ps$superpopulation), , drop = FALSE]
+  long <- long[!is.na(long$superpopulation), , drop = FALSE]
 
   # Synthesise a reference arm from the pedigree so the example can be scored
-  # end to end. In a real project this comes from running the same pipeline
-  # over the panel VCFs; see pgvis_panel_config().
+  # end to end: a variant list of its own, with each reference sample carrying
+  # a random subset. In a real project this comes from running the same
+  # pipeline over the panel VCFs; see pgvis_panel_config().
   set.seed(11)
-  panel_ps <- data.frame(
-    sample          = ped$sample,
-    superpopulation = ped$superpopulation,
-    cohort          = "1000Genomes",
-    n_variants      = 10L,
-    delta_wi_int    = stats::rnorm(nrow(ped)),
-    log_odds_ratio  = stats::rnorm(nrow(ped)),
-    delta_af_alt    = stats::rnorm(nrow(ped)),
+  ref_vars <- data.frame(
+    var_site       = sprintf("chrR:%d-%d(A>G)", 1000L * (1:60), 1000L * (1:60) + 1L),
+    delta_wi_int   = stats::rnorm(60),
+    log_odds_ratio = stats::rnorm(60),
     stringsAsFactors = FALSE
   )
+  panel_long <- do.call(rbind, lapply(seq_len(nrow(ped)), function(i) {
+    v <- ref_vars[sample(nrow(ref_vars), 10L), , drop = FALSE]
+    v$sample          <- ped$sample[i]
+    v$superpopulation <- ped$superpopulation[i]
+    v$cohort          <- "1000Genomes"
+    v
+  }))
+  panel_long <- panel_long[!is.na(panel_long$superpopulation), , drop = FALSE]
 
-  stacked <- pgvis_bind_panel(cohort_ps, panel_ps)
-  scores  <- pgvis_score(stacked, reference_group = "1000Genomes")
+  stacked <- dplyr::bind_rows(dplyr::as_tibble(long), dplyr::as_tibble(panel_long))
+  stacked <- pgvis_variant_score(stacked)                       # Eq. 1-2
+  per_sample <- pgvis_sample_scores(stacked)                    # Eq. 3
+  scores  <- pgvis_score(per_sample, reference_group = "1000Genomes")  # Eq. 4
 
-  list(metrics = metrics, per_sample = stacked, scores = scores)
+  list(metrics = metrics, per_sample = per_sample, scores = scores)
 }

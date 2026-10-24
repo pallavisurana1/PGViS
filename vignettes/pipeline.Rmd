@@ -170,9 +170,12 @@ panel_variants <- pgvis_load_variants(panel, region_first = FALSE)
 ped <- pgvis_load_pedigree("/refs/1kgp/20130606_g1k_3202_samples_ped_population.txt")
 ```
 
-Then stack the two arms and score:
+Then score each arm against its own variant list, stack the two arms and
+standardise against the reference:
 
 ```{r bind}
+cohort_per_sample <- pgvis_sample_scores(pgvis_variant_score(cohort_long))
+panel_per_sample  <- pgvis_sample_scores(pgvis_variant_score(panel_long))
 stacked <- pgvis_bind_panel(cohort_per_sample, panel_per_sample)
 scores  <- pgvis_score(stacked, reference_group = "1000Genomes")
 ```
@@ -184,7 +187,7 @@ than an error.
 ## Provenance
 
 `pgvis_run()` writes a manifest next to every result recording the thresholds,
-the derived weights, the input row counts and any QC warnings.
+the scoring method and reference statistics, the input row counts and any QC warnings.
 
 ```{r manifest}
 pgvis_manifest(cfg, stage = "custom_filter",

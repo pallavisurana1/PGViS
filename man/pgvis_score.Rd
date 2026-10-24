@@ -2,7 +2,7 @@
 % Please edit documentation in R/score.R
 \name{pgvis_score}
 \alias{pgvis_score}
-\title{Compute the PGViS composite score}
+\title{Compute the PGViS score}
 \usage{
 pgvis_score(
   df,
@@ -10,13 +10,17 @@ pgvis_score(
   reference_group = "1000Genomes",
   group_col = "cohort",
   strata = "superpopulation",
-  weights = NULL
+  weights = NULL,
+  method = c("percentile", "pca"),
+  reference = NULL
 )
 }
 \arguments{
-\item{df}{One row per sample, from \code{\link[=pgvis_aggregate_samples]{pgvis_aggregate_samples()}}.}
+\item{df}{One row per sample. For \code{method = "percentile"} it needs the
+\code{pgvis_raw} column from \code{\link[=pgvis_sample_scores]{pgvis_sample_scores()}}; for \code{method = "pca"} the
+metric columns from \code{\link[=pgvis_aggregate_samples]{pgvis_aggregate_samples()}}.}
 
-\item{metrics}{Metric columns to combine.}
+\item{metrics}{(\code{"pca"} only) Metric columns to combine.}
 
 \item{reference_group}{Value of \code{group_col} identifying the reference
 cohort (e.g. \code{"1000Genomes"}).}
@@ -27,27 +31,56 @@ cohort (e.g. \code{"1000Genomes"}).}
 standardise against the whole reference cohort, which is only appropriate
 for an ancestry-homogeneous dataset.}
 
-\item{weights}{Optional named numeric vector to override the PCA-derived
-weights. Useful for scoring a new cohort with weights frozen from a
-previous run; see \code{\link[=pgvis_weights]{pgvis_weights()}}.}
+\item{weights}{(\code{"pca"} only) Optional named numeric vector to override the
+PCA-derived weights; see \code{\link[=pgvis_weights]{pgvis_weights()}}.}
+
+\item{method}{\code{"percentile"} (default) or \code{"pca"} (legacy).}
+
+\item{reference}{(\code{"percentile"} only) Optional table of frozen reference
+statistics (columns \code{mu}, \code{sigma} and the \code{strata} column), e.g. the
+\code{"reference"} attribute of an earlier run. Use it to place a new cohort on
+the scale of a previous analysis without refitting.}
 }
 \value{
-A table with one row per sample: the per-metric z-scores, the
-composite \code{pgvis} score, and the weights as attribute \code{"weights"}.
+One row per sample. For \code{"percentile"}: \code{pgvis_raw} and the
+standardised \code{pgvis}, with the reference statistics as attribute
+\code{"reference"}. For \code{"pca"}: the per-metric z-scores and \code{pgvis}, with the
+weights as attribute \code{"weights"}.
 }
 \description{
-Three steps:
+The default score (\code{method = "percentile"}, PGViS >= 0.2.0) standardises the
+raw sample score \code{S} from \code{\link[=pgvis_sample_scores]{pgvis_sample_scores()}} against the reference
+cohort scored the same way (Eq. 4):
 }
 \details{
-\enumerate{
-\item \strong{Robust standardisation.} Each metric is centred on the median and
-scaled by the median absolute deviation \emph{of the reference cohort within
-the same superpopulation}. Median/MAD rather than mean/SD because the
-metric distributions have heavy right tails.
-\item \strong{Weighting.} Weights are the absolute PC1 loadings of the scaled
-z-scores, normalised to sum to one. PC1 is the axis of shared variation
-across the three metrics, so this weights each metric by how much it
-contributes to the common signal rather than by a hand-picked constant.
-\item \strong{Combination.} The score is the weighted sum of the z-scores.
+\deqn{PGViS_i = (S_i - \mathrm{mean}_{ref}) / \mathrm{SD}_{ref}}{PGViS_i = (S_i - mean_ref) / SD_ref}
+
+The mean and standard deviation are taken over the reference samples of the
+\emph{same superpopulation} as sample \code{i}. Ancestry matching is not cosmetic:
+allele frequency divergence from a reference panel is confounded with how
+genetically distant a sample is from that panel, and control scores differ
+by about one standard deviation across superpopulations.
+
+The full chain is
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{long   <- pgvis_variant_score(long)          # Eq. 1-2
+sample <- pgvis_sample_scores(long)          # Eq. 3
+scores <- pgvis_score(sample)                # Eq. 4
+}\if{html}{\out{</div>}}
+
+\code{method = "pca"} keeps the pre-0.2.0 composite: per-metric median/MAD
+z-scores combined with PC1-derived weights. It is retained for
+reproducibility only; its mean-aggregated metrics and prevalence weighting
+follow the size of the variant list, and it includes \code{delta_af_alt}, which
+is the variant-selection criterion.
 }
+\examples{
+set.seed(1)
+d <- data.frame(
+  sample = paste0("S", 1:60),
+  cohort = rep(c("1000Genomes", "tumour"), each = 30),
+  superpopulation = "EUR", n_variants = 20L,
+  pgvis_raw = c(rnorm(30, 0.5, 0.05), rnorm(30, 0.55, 0.05))
+)
+head(pgvis_score(d))
 }
