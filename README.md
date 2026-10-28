@@ -21,7 +21,7 @@ everything a person carries into one ancestry-referenced number.
 cancer genomes are called from WGS, intersected with splice sites and
 transcription-factor binding sites, scored with DNABERT models and by
 allele-frequency shifts, and combined into a cumulative per-patient
-PGViS risk score.](man/figures/graphical-abstract.png)
+PGViS risk score.](man/figures/graphical-abstract1.png)
 
 ```         
 BAM ─▶ GVCF ─▶ joint VCF ─▶ BED + carriers ─▶ ∩ regions ─▶ ∩ dbSNP
